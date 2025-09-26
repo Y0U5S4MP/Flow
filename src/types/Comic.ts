@@ -1,0 +1,90 @@
+export interface Comic {
+  id: string;
+  title: string;
+  description?: string;
+  panels: Panel[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Panel {
+  id: string;
+  elements: ComicElement[];
+  animations?: Animation[];
+  audio?: AudioConfig | null;
+  transitions?: Transition[];
+}
+
+export interface ComicElement {
+  id: string;
+  type: 'text' | 'brush' | 'shape' | 'image' | 'gif' | 'video';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  content?: string;
+  color?: string;
+  fontSize?: number;
+  strokeWidth?: number;
+  path?: Point[];
+  shape?: 'rectangle' | 'circle' | 'triangle';
+  imageUrl?: string;
+  videoUrl?: string;
+  gifUrl?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  volume?: number;
+  startTime?: number;
+  endTime?: number;
+  playbackSpeed?: number;
+  filters?: MediaFilter[];
+}
+
+export interface MediaFilter {
+  type: 'brightness' | 'contrast' | 'saturation' | 'blur' | 'sepia' | 'grayscale';
+  value: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Animation {
+  type: 'fadeIn' | 'slideIn' | 'rotateIn' | 'bounce' | 'typewriter';
+  duration: number;
+  delay: number;
+  easing?: 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out';
+  elementId?: string;
+}
+
+export interface AudioConfig {
+  backgroundMusic?: {
+    url: string;
+    volume: number;
+    loop: boolean;
+  } | null;
+  soundEffects?: SoundEffect[];
+}
+
+export interface SoundEffect {
+  id: string;
+  url: string;
+  trigger: 'onLoad' | 'onClick' | 'onHover';
+  volume: number;
+  element?: string;
+}
+
+export interface Transition {
+  type: 'fade' | 'slide' | 'zoom' | 'flip';
+  duration: number;
+  direction?: 'left' | 'right' | 'up' | 'down';
+}
+
+export interface DrawingStroke {
+  id: string;
+  points: Point[];
+  color: string;
+  width: number;
+  opacity: number;
+}
