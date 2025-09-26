@@ -131,6 +131,8 @@ const Upload: React.FC = () => {
       ...prev,
       panels: updatedPanels
     }));
+
+    setEditingPanel(prev => prev ? { ...prev, panel: updatedPanel } : null);
   };
 
   const handlePanelDelete = (index: number) => {
