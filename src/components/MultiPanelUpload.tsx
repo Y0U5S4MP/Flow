@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Grid } from 'lucide-react';
+import { Upload, Grid2x2 as Grid } from 'lucide-react';
 import { Panel, ComicElement } from '../types/Comic';
 import { v4 as uuidv4 } from 'uuid';
 
