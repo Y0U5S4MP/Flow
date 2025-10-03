@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Image, Film, FileText, X, Plus, Grid } from 'lucide-react';
+import { Upload, Grid } from 'lucide-react';
 import { Panel, ComicElement } from '../types/Comic';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,28 +12,24 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleMultipleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setUploadedFiles(files);
-  };
-
-  const processFiles = async () => {
-    if (uploadedFiles.length === 0) return;
+    if (files.length === 0) return;
 
     setIsProcessing(true);
     const panels: Panel[] = [];
 
-    for (let i = 0; i < uploadedFiles.length; i++) {
-      const file = uploadedFiles[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const url = await fileToDataURL(file);
-      
+
       const element: ComicElement = {
         id: uuidv4(),
         type: getFileType(file),
-        x: 50,
-        y: 50,
-        width: 400,
-        height: 300,
+        x: 0,
+        y: 0,
+        width: 1600,
+        height: 900,
         imageUrl: getFileType(file) === 'image' ? url : undefined,
         gifUrl: getFileType(file) === 'gif' ? url : undefined,
         videoUrl: getFileType(file) === 'video' ? url : undefined,
@@ -53,9 +49,12 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
     }
 
     onPanelsUploaded(panels);
-    setUploadedFiles([]);
     setIsProcessing(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
+
 
   const fileToDataURL = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -71,9 +70,6 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
     return 'image';
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
 
   return (
     <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-purple-100">
@@ -84,16 +80,25 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
 
       <div className="space-y-4">
         <div
-          className="border-2 border-dashed border-purple-300 rounded-lg p-8 text-center hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer"
+          className="border-2 border-dashed border-purple-300 rounded-lg p-8 text-center hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer relative"
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload className="w-12 h-12 text-purple-600 mx-auto mb-4" />
-          <p className="text-lg font-medium text-purple-600 mb-2">
-            Selecciona múltiples archivos
-          </p>
-          <p className="text-sm text-gray-600">
-            Imágenes, GIFs y videos MP4. Cada archivo será un panel separado.
-          </p>
+          {isProcessing ? (
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4" />
+              <p className="text-lg font-medium text-purple-600">Subiendo paneles...</p>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+              <p className="text-lg font-medium text-purple-600 mb-2">
+                Selecciona múltiples archivos
+              </p>
+              <p className="text-sm text-gray-600">
+                Imágenes, GIFs y videos MP4. Los paneles se crearán automáticamente.
+              </p>
+            </>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -101,58 +106,14 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
             accept="image/*,.gif,video/mp4"
             onChange={handleMultipleFileUpload}
             className="hidden"
+            disabled={isProcessing}
           />
         </div>
 
-        {uploadedFiles.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-800">
-              Archivos seleccionados ({uploadedFiles.length})
-            </h4>
-            <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      {getFileType(file) === 'image' && <Image className="w-4 h-4 text-blue-600" />}
-                      {getFileType(file) === 'gif' && <Upload className="w-4 h-4 text-blue-600" />}
-                      {getFileType(file) === 'video' && <Film className="w-4 h-4 text-blue-600" />}
-                    </div>
-                    <span className="text-sm text-gray-700 truncate max-w-32">
-                      {file.name}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={processFiles}
-              disabled={isProcessing}
-              className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-2"
-            >
-              {isProcessing ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  <span>Crear {uploadedFiles.length} Panel{uploadedFiles.length !== 1 ? 'es' : ''}</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-blue-800 text-sm">
-            <strong>💡 Consejo:</strong> Selecciona múltiples archivos para crear varios paneles de una vez. 
-            Cada archivo se convertirá en un panel separado que podrás editar individualmente.
+            <strong>💡 Consejo:</strong> Selecciona múltiples archivos para crear paneles automáticamente.
+            Las imágenes ocuparán toda la página y podrás editarlas después.
           </p>
         </div>
       </div>

@@ -27,6 +27,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [draggingElement, setDraggingElement] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Sincronizar panel local con prop
@@ -211,7 +213,43 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     setSelectedElement(elementId);
+    setDraggingElement(elementId);
+
+    const element = localPanel.elements.find(el => el.id === elementId);
+    if (!element) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingElement) return;
+
+    const element = localPanel.elements.find(el => el.id === draggingElement);
+    if (!element) return;
+
+    const canvas = e.currentTarget as HTMLElement;
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = 1600 / 800;
+    const scaleY = 900 / 600;
+
+    const newX = ((e.clientX - rect.left - dragOffset.x) / (zoom / 100)) * scaleX;
+    const newY = ((e.clientY - rect.top - dragOffset.y) / (zoom / 100)) * scaleY;
+
+    updateElement(draggingElement, {
+      x: Math.max(0, Math.min(1600 - (element.width || 100), newX)),
+      y: Math.max(0, Math.min(900 - (element.height || 100), newY))
+    });
+  };
+
+  const handleMouseUp = () => {
+    setDraggingElement(null);
   };
 
   const renderElement = (element: ComicElement) => {
@@ -230,9 +268,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       fontWeight: element.fontWeight || 'normal',
       fontStyle: element.fontStyle || 'normal',
       textAlign: (element.textAlign as any) || 'left',
-      cursor: 'pointer',
+      cursor: draggingElement === element.id ? 'grabbing' : 'grab',
       border: isSelected ? '2px solid #8b5cf6' : 'none',
-      userSelect: 'none'
+      userSelect: 'none',
+      zIndex: isSelected ? 1000 : 1
     };
 
     switch (element.type) {
@@ -405,7 +444,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         <div className="flex flex-1 overflow-hidden">
           {/* Canvas */}
           <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden relative">
-            <div 
+            <div
               className="relative bg-white mx-auto"
               style={{
                 width: `${800}px`,
@@ -413,6 +452,9 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 transform: `scale(${zoom / 100})`,
                 transformOrigin: 'top left'
               }}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             >
               {/* Grid */}
               {showGrid && (
