@@ -886,24 +886,30 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             )}
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-4 right-4 flex space-x-2">
-        <button
-          onClick={exportPanel}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
-        >
-          <Download className="w-4 h-4" />
-          <span>Exportar</span>
-        </button>
-        
-        <button
-          onClick={onClose}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-        >
-          Guardar
-        </button>
+        {/* Footer */}
+        <div className="flex items-center justify-between p-4 border-t border-gray-200">
+          <div className="text-sm text-gray-600">
+            {localPanel.elements.length} elemento(s)
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={exportPanel}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+            >
+              <Download className="w-4 h-4" />
+              <span>Exportar</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
