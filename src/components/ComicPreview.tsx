@@ -46,13 +46,17 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   };
 
   const renderElement = (element: ComicElement) => {
+    // Scale elements to full screen presentation (16:9 aspect ratio)
+    const scaleX = 1600 / 800;
+    const scaleY = 900 / 600;
+    
     const style: React.CSSProperties = {
       position: 'absolute',
-      left: `${element.x}px`,
-      top: `${element.y}px`,
-      width: element.width ? `${element.width}px` : 'auto',
-      height: element.height ? `${element.height}px` : 'auto',
-      fontSize: element.fontSize ? `${element.fontSize}px` : '16px',
+      left: `${element.x * scaleX}px`,
+      top: `${element.y * scaleY}px`,
+      width: element.width ? `${element.width * scaleX}px` : 'auto',
+      height: element.height ? `${element.height * scaleY}px` : 'auto',
+      fontSize: element.fontSize ? `${element.fontSize * scaleX}px` : `${16 * scaleX}px`,
       color: element.color || '#000000',
       fontWeight: element.fontWeight || 'normal',
       fontStyle: element.fontStyle || 'normal',
@@ -133,18 +137,18 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
             key={element.id}
             style={{
               position: 'absolute',
-              left: `${element.x}px`,
-              top: `${element.y}px`,
-              width: '100px',
-              height: '100px',
+              left: `${element.x * scaleX}px`,
+              top: `${element.y * scaleY}px`,
+              width: `${100 * scaleX}px`,
+              height: `${100 * scaleY}px`,
               pointerEvents: 'none'
             }}
           >
             {element.path && element.path.length > 0 && (
               <path
-                d={`M ${element.path[0].x - element.x} ${element.path[0].y - element.y} ${element.path.slice(1).map(p => `L ${p.x - element.x} ${p.y - element.y}`).join(' ')}`}
+                d={`M ${(element.path[0].x - element.x) * scaleX} ${(element.path[0].y - element.y) * scaleY} ${element.path.slice(1).map(p => `L ${(p.x - element.x) * scaleX} ${(p.y - element.y) * scaleY}`).join(' ')}`}
                 stroke={element.color}
-                strokeWidth={element.strokeWidth}
+                strokeWidth={(element.strokeWidth || 2) * scaleX}
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -204,8 +208,13 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="relative">
           <div 
-            className="bg-white rounded-lg shadow-2xl overflow-hidden"
-            style={{ width: '800px', height: '600px' }}
+            className="bg-white shadow-2xl overflow-hidden"
+            style={{ 
+              width: '100vw', 
+              height: '100vh',
+              maxWidth: '1600px',
+              maxHeight: '900px'
+            }}
           >
             <div className="relative w-full h-full">
               {currentPanel.elements
