@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Panel, ComicElement, Animation, Transition, AudioConfig, SoundEffect, DrawingStroke } from '../types/Comic';
-import { X, Palette, Music, Volume2, Zap, Move, RotateCcw, Brush, Type, Square, Circle, Trash2, Eye, EyeOff, Play, Pause, SkipForward, SkipBack, Save, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, RotateCw, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Image as ImageIcon, Film, Upload as UploadIcon, Wand2, Sparkles, Volume1, VolumeX, Settings, Download, Share2 } from 'lucide-react';
+import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
+import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AdvancedPanelEditorProps {
@@ -9,12 +9,12 @@ interface AdvancedPanelEditorProps {
   onClose: () => void;
 }
 
-const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({ 
-  panel, 
-  onPanelUpdate, 
-  onClose 
+const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
+  panel,
+  onPanelUpdate,
+  onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'elements' | 'animations' | 'transitions' | 'audio' | 'drawing' | 'effects'>('elements');
+  const [activeTab, setActiveTab] = useState<'elements' | 'animations' | 'order'>('elements');
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [showGrid, setShowGrid] = useState(false);
@@ -22,36 +22,18 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const [history, setHistory] = useState<Panel[]>([panel]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [clipboard, setClipboard] = useState<ComicElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [currentStroke, setCurrentStroke] = useState<DrawingStroke | null>(null);
-  const [brushColor, setBrushColor] = useState('#000000');
-  const [brushSize, setBrushSize] = useState(3);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [draggingElement, setDraggingElement] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizingElement, setResizingElement] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [previewAnimation, setPreviewAnimation] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Sincronizar panel local con prop
   useEffect(() => {
     setLocalPanel(panel);
     setHistory([panel]);
     setHistoryIndex(0);
   }, [panel]);
-
-  // Audio URLs
-  const musicTracks = {
-    action: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    drama: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    comedy: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    suspense: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-  };
-
-  const soundEffects = {
-    explosion: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    whoosh: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    pop: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    click: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-  };
 
   const addToHistory = (newPanel: Panel) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -102,9 +84,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   };
 
   const addElement = (element: ComicElement) => {
+    const maxOrder = Math.max(0, ...localPanel.elements.map(el => el.appearanceOrder || 0));
     const updatedPanel: Panel = {
       ...localPanel,
-      elements: [...localPanel.elements, element]
+      elements: [...localPanel.elements, { ...element, appearanceOrder: maxOrder + 1 }]
     };
     addToHistory(updatedPanel);
   };
@@ -119,12 +102,29 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const pasteElement = () => {
     if (clipboard) {
       const newElement = { ...clipboard, id: uuidv4(), x: clipboard.x + 20, y: clipboard.y + 20 };
-      const updatedPanel: Panel = {
-        ...localPanel,
-        elements: [...localPanel.elements, newElement]
-      };
-      addToHistory(updatedPanel);
+      addElement(newElement);
     }
+  };
+
+  const moveElementOrder = (elementId: string, direction: 'up' | 'down') => {
+    const currentElement = localPanel.elements.find(el => el.id === elementId);
+    if (!currentElement) return;
+
+    const currentOrder = currentElement.appearanceOrder || 0;
+    const targetOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1;
+    const targetElement = localPanel.elements.find(el => (el.appearanceOrder || 0) === targetOrder);
+
+    if (!targetElement) return;
+
+    const updatedPanel: Panel = {
+      ...localPanel,
+      elements: localPanel.elements.map(el => {
+        if (el.id === elementId) return { ...el, appearanceOrder: targetOrder };
+        if (el.id === targetElement.id) return { ...el, appearanceOrder: currentOrder };
+        return el;
+      })
+    };
+    addToHistory(updatedPanel);
   };
 
   const exportPanel = () => {
@@ -134,20 +134,16 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size to presentation format (16:9)
     canvas.width = 1600;
     canvas.height = 900;
 
-    // Clear and set background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw elements
     localPanel.elements.forEach(element => {
       drawElement(ctx, element);
     });
 
-    // Download
     const link = document.createElement('a');
     link.download = 'panel.png';
     link.href = canvas.toDataURL();
@@ -156,11 +152,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: ComicElement) => {
     ctx.save();
-    
-    // Scale elements to fit presentation size
+
     const scaleX = 1600 / 800;
     const scaleY = 900 / 600;
-    
+
     switch (element.type) {
       case 'text':
         ctx.font = `${(element.fontSize || 16) * scaleX}px Arial`;
@@ -169,94 +164,169 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         ctx.textBaseline = 'top';
         ctx.fillText(element.content || '', element.x * scaleX, element.y * scaleY);
         break;
-        
+
       case 'shape':
         ctx.fillStyle = element.color || '#000000';
         if (element.shape === 'rectangle') {
           ctx.fillRect(
-            element.x * scaleX, 
-            element.y * scaleY, 
-            (element.width || 50) * scaleX, 
+            element.x * scaleX,
+            element.y * scaleY,
+            (element.width || 50) * scaleX,
             (element.height || 50) * scaleY
           );
         } else if (element.shape === 'circle') {
           ctx.beginPath();
           ctx.arc(
-            (element.x + (element.width || 50) / 2) * scaleX, 
-            (element.y + (element.height || 50) / 2) * scaleY, 
-            ((element.width || 50) / 2) * scaleX, 
+            (element.x + (element.width || 50) / 2) * scaleX,
+            (element.y + (element.height || 50) / 2) * scaleY,
+            ((element.width || 50) / 2) * scaleX,
             0, 2 * Math.PI
           );
           ctx.fill();
         }
         break;
 
-      case 'brush':
-        if (element.path && element.path.length > 0) {
-          ctx.strokeStyle = element.color || '#000000';
-          ctx.lineWidth = (element.strokeWidth || 2) * scaleX;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          
-          ctx.beginPath();
-          ctx.moveTo(element.path[0].x * scaleX, element.path[0].y * scaleY);
-          element.path.forEach(point => {
-            ctx.lineTo(point.x * scaleX, point.y * scaleY);
-          });
-          ctx.stroke();
+      case 'image':
+      case 'gif':
+        if (element.imageUrl || element.gifUrl) {
+          const img = new Image();
+          img.src = (element.imageUrl || element.gifUrl) as string;
+          ctx.drawImage(img, element.x, element.y, element.width || 100, element.height || 100);
         }
         break;
     }
-    
+
     ctx.restore();
   };
 
-  const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
+  const handleMouseDown = (e: React.MouseEvent, elementId: string, handle?: string) => {
     e.preventDefault();
     e.stopPropagation();
     setSelectedElement(elementId);
-    setDraggingElement(elementId);
 
-    const element = localPanel.elements.find(el => el.id === elementId);
-    if (!element) return;
+    if (handle) {
+      setResizingElement(elementId);
+      setResizeHandle(handle);
+    } else {
+      setDraggingElement(elementId);
+      const element = localPanel.elements.find(el => el.id === elementId);
+      if (!element) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    });
+      const rect = e.currentTarget.getBoundingClientRect();
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingElement) return;
+    if (draggingElement) {
+      const element = localPanel.elements.find(el => el.id === draggingElement);
+      if (!element) return;
 
-    const element = localPanel.elements.find(el => el.id === draggingElement);
-    if (!element) return;
+      const canvas = e.currentTarget as HTMLElement;
+      const rect = canvas.getBoundingClientRect();
 
-    const canvas = e.currentTarget as HTMLElement;
-    const rect = canvas.getBoundingClientRect();
+      const scaleX = 1600 / 800;
+      const scaleY = 900 / 600;
 
-    const scaleX = 1600 / 800;
-    const scaleY = 900 / 600;
+      const newX = ((e.clientX - rect.left - dragOffset.x) / (zoom / 100)) * scaleX;
+      const newY = ((e.clientY - rect.top - dragOffset.y) / (zoom / 100)) * scaleY;
 
-    const newX = ((e.clientX - rect.left - dragOffset.x) / (zoom / 100)) * scaleX;
-    const newY = ((e.clientY - rect.top - dragOffset.y) / (zoom / 100)) * scaleY;
+      updateElement(draggingElement, {
+        x: Math.max(0, Math.min(1600 - (element.width || 100), newX)),
+        y: Math.max(0, Math.min(900 - (element.height || 100), newY))
+      });
+    }
 
-    updateElement(draggingElement, {
-      x: Math.max(0, Math.min(1600 - (element.width || 100), newX)),
-      y: Math.max(0, Math.min(900 - (element.height || 100), newY))
-    });
+    if (resizingElement && resizeHandle) {
+      const element = localPanel.elements.find(el => el.id === resizingElement);
+      if (!element) return;
+
+      const canvas = e.currentTarget as HTMLElement;
+      const rect = canvas.getBoundingClientRect();
+
+      const scaleX = 1600 / 800;
+      const scaleY = 900 / 600;
+
+      const mouseX = ((e.clientX - rect.left) / (zoom / 100)) * scaleX;
+      const mouseY = ((e.clientY - rect.top) / (zoom / 100)) * scaleY;
+
+      let newWidth = element.width || 100;
+      let newHeight = element.height || 100;
+      let newX = element.x;
+      let newY = element.y;
+
+      switch (resizeHandle) {
+        case 'se':
+          newWidth = Math.max(20, mouseX - element.x);
+          newHeight = Math.max(20, mouseY - element.y);
+          break;
+        case 'sw':
+          newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
+          newHeight = Math.max(20, mouseY - element.y);
+          newX = Math.min(element.x, mouseX);
+          break;
+        case 'ne':
+          newWidth = Math.max(20, mouseX - element.x);
+          newHeight = Math.max(20, element.y + (element.height || 100) - mouseY);
+          newY = Math.min(element.y, mouseY);
+          break;
+        case 'nw':
+          newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
+          newHeight = Math.max(20, element.y + (element.height || 100) - mouseY);
+          newX = Math.min(element.x, mouseX);
+          newY = Math.min(element.y, mouseY);
+          break;
+      }
+
+      updateElement(resizingElement, { x: newX, y: newY, width: newWidth, height: newHeight });
+    }
   };
 
   const handleMouseUp = () => {
     setDraggingElement(null);
+    setResizingElement(null);
+    setResizeHandle(null);
+  };
+
+  const getAnimationClass = (element: ComicElement, animationType: 'entrance' | 'exit') => {
+    const animation = animationType === 'entrance' ? element.entranceAnimation : element.exitAnimation;
+    if (!animation) return '';
+
+    const baseClass = 'animate-';
+    switch (animation.type) {
+      case 'fadeIn':
+        return `${baseClass}fadeIn`;
+      case 'fadeOut':
+        return `${baseClass}fadeOut`;
+      case 'slideIn':
+        return `${baseClass}slideIn-${animation.direction || 'left'}`;
+      case 'slideOut':
+        return `${baseClass}slideOut-${animation.direction || 'left'}`;
+      case 'zoomIn':
+        return `${baseClass}zoomIn`;
+      case 'zoomOut':
+        return `${baseClass}zoomOut`;
+      case 'bounceIn':
+        return `${baseClass}bounceIn`;
+      case 'bounceOut':
+        return `${baseClass}bounceOut`;
+      case 'rotateIn':
+        return `${baseClass}rotateIn`;
+      case 'rotateOut':
+        return `${baseClass}rotateOut`;
+      default:
+        return '';
+    }
   };
 
   const renderElement = (element: ComicElement) => {
     const isSelected = selectedElement === element.id;
-    const scaleX = 800 / 1600; // Scale down for editor view
+    const scaleX = 800 / 1600;
     const scaleY = 600 / 900;
-    
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${element.x * scaleX}px`,
@@ -274,110 +344,103 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       zIndex: isSelected ? 1000 : 1
     };
 
-    switch (element.type) {
-      case 'text':
-        return (
-          <div
-            key={element.id}
-            style={style}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          >
-            {element.content}
-          </div>
-        );
-      
-      case 'image':
-        return (
-          <img
-            key={element.id}
-            src={element.imageUrl}
-            alt="Imagen"
-            style={style}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          />
-        );
-      
-      case 'gif':
-        return (
-          <img
-            key={element.id}
-            src={element.gifUrl}
-            alt="GIF"
-            style={style}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          />
-        );
-      
-      case 'video':
-        return (
-          <video
-            key={element.id}
-            src={element.videoUrl}
-            style={style}
-            autoPlay={element.autoplay}
-            loop={element.loop}
-            muted={true}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          />
-        );
+    const elementContent = (() => {
+      switch (element.type) {
+        case 'text':
+          return (
+            <div style={{ ...style, padding: '4px' }}>
+              {element.content}
+            </div>
+          );
 
-      case 'shape':
-        return (
-          <div
-            key={element.id}
-            style={{
-              ...style,
-              backgroundColor: element.color,
-              borderRadius: element.shape === 'circle' ? '50%' : '0',
-              border: isSelected ? '2px solid #8b5cf6' : 'none'
-            }}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          />
-        );
+        case 'image':
+          return (
+            <img
+              src={element.imageUrl}
+              alt="Imagen"
+              style={style}
+            />
+          );
 
-      case 'brush':
-        return (
-          <svg
-            key={element.id}
-            style={{
-              position: 'absolute',
-              left: `${element.x * scaleX}px`,
-              top: `${element.y * scaleY}px`,
-              width: '100px',
-              height: '100px',
-              pointerEvents: 'auto',
-              border: isSelected ? '2px solid #8b5cf6' : 'none'
-            }}
-            onClick={() => setSelectedElement(element.id)}
-            onMouseDown={(e) => handleMouseDown(e, element.id)}
-          >
-            {element.path && element.path.length > 0 && (
-              <path
-                d={`M ${(element.path[0].x - element.x) * scaleX} ${(element.path[0].y - element.y) * scaleY} ${element.path.slice(1).map(p => `L ${(p.x - element.x) * scaleX} ${(p.y - element.y) * scaleY}`).join(' ')}`}
-                stroke={element.color}
-                strokeWidth={(element.strokeWidth || 2) * scaleX}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-          </svg>
-        );
-      
-      default:
-        return null;
-    }
+        case 'gif':
+          return (
+            <img
+              src={element.gifUrl}
+              alt="GIF"
+              style={style}
+            />
+          );
+
+        case 'video':
+          return (
+            <video
+              src={element.videoUrl}
+              style={style}
+              autoPlay={element.autoplay}
+              loop={element.loop}
+              muted={true}
+            />
+          );
+
+        case 'shape':
+          return (
+            <div
+              style={{
+                ...style,
+                backgroundColor: element.color,
+                borderRadius: element.shape === 'circle' ? '50%' : '0'
+              }}
+            />
+          );
+
+        default:
+          return null;
+      }
+    })();
+
+    return (
+      <div
+        key={element.id}
+        onMouseDown={(e) => handleMouseDown(e, element.id)}
+        className={previewAnimation && element.entranceAnimation ? getAnimationClass(element, 'entrance') : ''}
+      >
+        {elementContent}
+
+        {isSelected && element.type !== 'text' && (
+          <>
+            <div
+              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-nw-resize"
+              style={{ left: '-6px', top: '-6px' }}
+              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'nw'); }}
+            />
+            <div
+              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-ne-resize"
+              style={{ right: '-6px', top: '-6px' }}
+              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'ne'); }}
+            />
+            <div
+              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-sw-resize"
+              style={{ left: '-6px', bottom: '-6px' }}
+              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'sw'); }}
+            />
+            <div
+              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-se-resize"
+              style={{ right: '-6px', bottom: '-6px' }}
+              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'se'); }}
+            />
+          </>
+        )}
+      </div>
+    );
   };
+
+  const sortedElements = [...localPanel.elements].sort((a, b) =>
+    (a.appearanceOrder || 0) - (b.appearanceOrder || 0)
+  );
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-5/6 flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-bold text-gray-800">Editor Avanzado de Panel</h2>
@@ -408,7 +471,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
               </button>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowGrid(!showGrid)}
@@ -442,7 +505,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Canvas */}
           <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden relative">
             <div
               className="relative bg-white mx-auto"
@@ -456,7 +518,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              {/* Grid */}
               {showGrid && (
                 <div className="absolute inset-0 opacity-20">
                   <svg width="100%" height="100%">
@@ -469,24 +530,19 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                   </svg>
                 </div>
               )}
-            
-            {/* Elements */}
-            {localPanel.elements
+
+            {sortedElements
               .filter(el => el.visible !== false)
               .map(renderElement)}
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="w-80 border-l border-gray-200 bg-white flex flex-col">
-          {/* Tabs */}
           <div className="flex border-b border-gray-200 overflow-x-auto">
             {[
               { key: 'elements', icon: Layers, label: 'Elementos' },
-              { key: 'animations', icon: Zap, label: 'Animaciones' },
-              { key: 'transitions', icon: Move, label: 'Transiciones' },
-              { key: 'audio', icon: Music, label: 'Audio' },
-              { key: 'drawing', icon: Brush, label: 'Dibujo' }
+              { key: 'animations', icon: Play, label: 'Animaciones' },
+              { key: 'order', icon: ArrowUp, label: 'Orden' }
             ].map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
@@ -503,11 +559,9 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             ))}
           </div>
 
-          {/* Tab Content */}
           <div className="flex-1 p-4 overflow-y-auto">
             {activeTab === 'elements' && (
               <div className="space-y-4">
-                {/* Add Elements */}
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-3">Agregar Elementos</h3>
                   <div className="grid grid-cols-2 gap-2">
@@ -530,7 +584,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       <Type className="w-5 h-5 mx-auto mb-1 text-purple-600" />
                       <span className="text-xs">Texto</span>
                     </button>
-                    
+
                     <button
                       onClick={() => {
                         const element: ComicElement = {
@@ -551,7 +605,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       <Square className="w-5 h-5 mx-auto mb-1 text-purple-600" />
                       <span className="text-xs">Rectángulo</span>
                     </button>
-                    
+
                     <button
                       onClick={() => {
                         const element: ComicElement = {
@@ -572,7 +626,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       <Circle className="w-5 h-5 mx-auto mb-1 text-purple-600" />
                       <span className="text-xs">Círculo</span>
                     </button>
-                    
+
                     <button
                       onClick={() => {
                         const input = document.createElement('input');
@@ -617,12 +671,11 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                   </div>
                 </div>
 
-                {/* Elements List */}
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-3">
                     Elementos del Panel ({localPanel.elements.length})
                   </h3>
-                  <div className="space-y-4 max-h-80 overflow-y-auto">
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
                     {localPanel.elements.map((element) => (
                       <div
                         key={element.id}
@@ -657,8 +710,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                               className="p-1 hover:bg-gray-100 rounded"
                               title="Mostrar/Ocultar"
                             >
-                              {element.visible !== false ? 
-                                <Eye className="w-3 h-3 text-green-600" /> : 
+                              {element.visible !== false ?
+                                <Eye className="w-3 h-3 text-green-600" /> :
                                 <EyeOff className="w-3 h-3 text-gray-400" />
                               }
                             </button>
@@ -679,250 +732,189 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                   </div>
                 </div>
 
-                {/* Element Properties */}
-                {selectedElement && (
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-gray-800">Propiedades del Elemento</h4>
-                    {(() => {
-                      const element = localPanel.elements.find(el => el.id === selectedElement);
-                      if (!element) return null;
+                {selectedElement && (() => {
+                  const element = localPanel.elements.find(el => el.id === selectedElement);
+                  if (!element) return null;
 
-                      return (
-                        <div className="space-y-3">
-                          {element.type === 'text' && (
-                            <>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Texto</label>
-                                <input
-                                  type="text"
-                                  value={element.content || ''}
-                                  onChange={(e) => updateElement(element.id, { content: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                                  <input
-                                    type="color"
-                                    value={element.color || '#000000'}
-                                    onChange={(e) => updateElement(element.id, { color: e.target.value })}
-                                    className="w-full h-10 border border-gray-300 rounded-lg"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño</label>
-                                  <input
-                                    type="number"
-                                    value={element.fontSize || 16}
-                                    onChange={(e) => updateElement(element.id, { fontSize: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    min="8"
-                                    max="72"
-                                  />
-                                </div>
-                              </div>
-                            </>
-                          )}
-                          
-                          {element.type === 'shape' && (
-                            <>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                                <input
-                                  type="color"
-                                  value={element.color || '#000000'}
-                                  onChange={(e) => updateElement(element.id, { color: e.target.value })}
-                                  className="w-full h-10 border border-gray-300 rounded-lg"
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Ancho</label>
-                                  <input
-                                    type="number"
-                                    value={element.width || 100}
-                                    onChange={(e) => updateElement(element.id, { width: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    min="10"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Alto</label>
-                                  <input
-                                    type="number"
-                                    value={element.height || 100}
-                                    onChange={(e) => updateElement(element.id, { height: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    min="10"
-                                  />
-                                </div>
-                              </div>
-                            </>
-                          )}
+                  return (
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-800">Propiedades</h4>
+                      {element.type === 'text' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Texto</label>
+                            <input
+                              type="text"
+                              value={element.content || ''}
+                              onChange={(e) => updateElement(element.id, { content: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                              <input
+                                type="color"
+                                value={element.color || '#000000'}
+                                onChange={(e) => updateElement(element.id, { color: e.target.value })}
+                                className="w-full h-10 border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño</label>
+                              <input
+                                type="number"
+                                value={element.fontSize || 16}
+                                onChange={(e) => updateElement(element.id, { fontSize: Number(e.target.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                min="8"
+                                max="72"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {element.type === 'shape' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                          <input
+                            type="color"
+                            value={element.color || '#000000'}
+                            onChange={(e) => updateElement(element.id, { color: e.target.value })}
+                            className="w-full h-10 border border-gray-300 rounded-lg"
+                          />
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
             {activeTab === 'animations' && (
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-800">Animaciones del Panel</h4>
-                
-                {localPanel.elements.map((element) => (
-                  <div key={element.id} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">
-                        {element.type} - {element.type === 'text' ? element.content?.slice(0, 20) : element.id.slice(0, 8)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          const animation = { type: 'fadeIn', duration: 1000, delay: 0, elementId: element.id };
-                          const updatedPanel: Panel = {
-                            ...localPanel,
-                            animations: [...(localPanel.animations || []), animation]
-                          };
-                          addToHistory(updatedPanel);
-                        }}
-                        className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600"
-                      >
-                        Fade In
-                      </button>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-gray-800">Animaciones de Elementos</h4>
+                  <button
+                    onClick={() => setPreviewAnimation(!previewAnimation)}
+                    className={`px-3 py-1 rounded-lg text-sm ${previewAnimation ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                  >
+                    <Play className="w-4 h-4 inline mr-1" />
+                    {previewAnimation ? 'Previsualización' : 'Vista Normal'}
+                  </button>
+                </div>
+
+                {selectedElement ? (() => {
+                  const element = localPanel.elements.find(el => el.id === selectedElement);
+                  if (!element) return null;
+
+                  return (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Animación de Entrada</label>
+                        <select
+                          value={element.entranceAnimation?.type || ''}
+                          onChange={(e) => {
+                            const type = e.target.value as any;
+                            updateElement(element.id, {
+                              entranceAnimation: type ? { type, duration: 1000, delay: 0 } : undefined
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Sin animación</option>
+                          <option value="fadeIn">Aparecer</option>
+                          <option value="slideIn">Deslizar</option>
+                          <option value="zoomIn">Zoom In</option>
+                          <option value="bounceIn">Rebotar</option>
+                          <option value="rotateIn">Rotar</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Animación de Salida</label>
+                        <select
+                          value={element.exitAnimation?.type || ''}
+                          onChange={(e) => {
+                            const type = e.target.value as any;
+                            updateElement(element.id, {
+                              exitAnimation: type ? { type, duration: 1000, delay: 0 } : undefined
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Sin animación</option>
+                          <option value="fadeOut">Desvanecer</option>
+                          <option value="slideOut">Deslizar Fuera</option>
+                          <option value="zoomOut">Zoom Out</option>
+                          <option value="bounceOut">Rebotar Fuera</option>
+                          <option value="rotateOut">Rotar Fuera</option>
+                        </select>
+                      </div>
+
+                      {element.entranceAnimation && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Duración: {element.entranceAnimation.duration}ms
+                          </label>
+                          <input
+                            type="range"
+                            min="200"
+                            max="3000"
+                            step="100"
+                            value={element.entranceAnimation.duration}
+                            onChange={(e) => updateElement(element.id, {
+                              entranceAnimation: { ...element.entranceAnimation!, duration: Number(e.target.value) }
+                            })}
+                            className="w-full"
+                          />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })() : (
+                  <p className="text-gray-500 text-sm">Selecciona un elemento para añadir animaciones</p>
+                )}
               </div>
             )}
 
-            {activeTab === 'transitions' && (
+            {activeTab === 'order' && (
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-800">Transiciones</h4>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => {
-                      const updatedPanel: Panel = { ...localPanel, transitions: [{ type: 'fade', duration: 500 }] };
-                      addToHistory(updatedPanel);
-                    }}
-                    className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                  >
-                    Fade
-                  </button>
-                  <button
-                    onClick={() => {
-                      const updatedPanel: Panel = { ...localPanel, transitions: [{ type: 'slide', duration: 800, direction: 'left' }] };
-                      addToHistory(updatedPanel);
-                    }}
-                    className="w-full p-3 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                  >
-                    Slide
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'audio' && (
-              <div className="space-y-4">
-                <h4 className="font-semibold text-gray-800">Audio</h4>
-                <button
-                  onClick={() => {
-                    const audio = { backgroundMusic: { url: musicTracks.action, volume: 0.5, loop: true } };
-                    const updatedPanel: Panel = { ...localPanel, audio };
-                    addToHistory(updatedPanel);
-                  }}
-                  className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Música de Acción
-                </button>
-                <button
-                  onClick={() => {
-                    const soundEffect = { id: uuidv4(), url: soundEffects.explosion, trigger: 'onLoad', volume: 0.7 };
-                    const audio = { ...panel.audio, soundEffects: [...(panel.audio?.soundEffects || []), soundEffect] };
-                    const updatedPanel: Panel = { ...localPanel, audio };
-                    addToHistory(updatedPanel);
-                  }}
-                  className="w-full p-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-                >
-                  Efecto Explosión
-                </button>
-              </div>
-            )}
-
-            {activeTab === 'drawing' && (
-              <div className="space-y-4">
-                <h4 className="font-semibold text-gray-800">Herramientas de Dibujo</h4>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                  <input
-                    type="color"
-                    value={brushColor}
-                    onChange={(e) => setBrushColor(e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Grosor: {brushSize}px
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    value={brushSize}
-                    onChange={(e) => setBrushSize(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-                <div
-                  className="w-full h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-crosshair bg-white"
-                  onMouseDown={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-                    const newStroke = { id: uuidv4(), points: [point], color: brushColor, width: brushSize, opacity: 1 };
-                    setCurrentStroke(newStroke);
-                    
-                    const brushElement: ComicElement = {
-                      id: uuidv4(),
-                      type: 'brush',
-                      x: point.x,
-                      y: point.y,
-                      path: [point],
-                      color: brushColor,
-                      strokeWidth: brushSize
-                    };
-                    
-                    const updatedPanel: Panel = {
-                      ...localPanel,
-                      elements: [...localPanel.elements, brushElement]
-                    };
-                    addToHistory(updatedPanel);
-                  }}
-                  onMouseMove={(e) => {
-                    if (currentStroke && isDrawing) {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-                      const updatedStroke = { ...currentStroke, points: [...currentStroke.points, point] };
-                      setCurrentStroke(updatedStroke);
-                      
-                      const updatedPanel: Panel = {
-                        ...localPanel,
-                        elements: localPanel.elements.map(el => 
-                          el.id === currentStroke.id ? { ...el, path: updatedStroke.points } : el
-                        )
-                      };
-                      addToHistory(updatedPanel);
-                    }
-                  }}
-                  onMouseUp={() => {
-                    setIsDrawing(false);
-                    setCurrentStroke(null);
-                  }}
-                >
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    Área de dibujo
-                  </div>
+                <h4 className="font-semibold text-gray-800 mb-3">Orden de Aparición</h4>
+                <div className="space-y-2">
+                  {sortedElements.map((element, index) => (
+                    <div
+                      key={element.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm capitalize">
+                          {element.type}
+                          {element.type === 'text' && element.content && ` - ${element.content.slice(0, 15)}`}
+                        </span>
+                      </div>
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => moveElementOrder(element.id, 'up')}
+                          disabled={index === 0}
+                          className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => moveElementOrder(element.id, 'down')}
+                          disabled={index === sortedElements.length - 1}
+                          className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -930,7 +922,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-gray-200">
           <div className="text-sm text-gray-600">
             {localPanel.elements.length} elemento(s)

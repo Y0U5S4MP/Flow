@@ -29,7 +29,7 @@ const Navbar: React.FC = () => {
                 <Palette className="w-6 h-6 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                ComicFlow
+                Frameflow
               </span>
             </Link>
             

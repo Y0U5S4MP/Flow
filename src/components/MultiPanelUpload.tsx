@@ -75,7 +75,7 @@ const MultiPanelUpload: React.FC<MultiPanelUploadProps> = ({ onPanelsUploaded })
     <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-purple-100">
       <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center space-x-2">
         <Grid className="w-5 h-5" />
-        <span>Subida Múltiple de Paneles</span>
+        <span>Subir Paneles</span>
       </h3>
 
       <div className="space-y-4">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload as UploadIcon, Image, Film, FileText, X, Plus, Wand2 } from 'lucide-react';
+import { Wand2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Comic, Panel, ComicElement } from '../types/Comic';
 import { saveComic } from '../utils/storage';
@@ -15,10 +15,6 @@ const Upload: React.FC = () => {
     title: '',
     description: '',
     panels: []
-  });
-  const [currentPanel, setCurrentPanel] = useState<Panel>({
-    id: uuidv4(),
-    elements: []
   });
   const [isUploading, setIsUploading] = useState(false);
   const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
@@ -39,68 +35,6 @@ const Upload: React.FC = () => {
     );
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'gif' | 'video') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const url = event.target?.result as string;
-      
-      const newElement: ComicElement = {
-        id: uuidv4(),
-        type: type === 'image' ? 'image' : type,
-        x: 50,
-        y: 50,
-        width: type === 'video' ? 300 : 200,
-        height: type === 'video' ? 200 : 150,
-        imageUrl: type === 'image' ? url : undefined,
-        gifUrl: type === 'gif' ? url : undefined,
-        videoUrl: type === 'video' ? url : undefined,
-        autoplay: type === 'video' ? true : undefined,
-        loop: true,
-        volume: type === 'video' ? 0.5 : undefined
-      };
-
-      setCurrentPanel(prev => ({
-        ...prev,
-        elements: [...prev.elements, newElement]
-      }));
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  const addTextElement = () => {
-    const newElement: ComicElement = {
-      id: uuidv4(),
-      type: 'text',
-      x: 100,
-      y: 100,
-      content: 'Nuevo texto',
-      fontSize: 24,
-      color: '#000000'
-    };
-
-    setCurrentPanel(prev => ({
-      ...prev,
-      elements: [...prev.elements, newElement]
-    }));
-  };
-
-  const addPanelToComic = () => {
-    if (currentPanel.elements.length === 0) return;
-
-    setComic(prev => ({
-      ...prev,
-      panels: [...(prev.panels || []), currentPanel]
-    }));
-
-    setCurrentPanel({
-      id: uuidv4(),
-      elements: []
-    });
-  };
 
   const handleMultiplePanelsUpload = (newPanels: Panel[]) => {
     setComic(prev => ({
@@ -141,12 +75,6 @@ const Upload: React.FC = () => {
     }));
   };
 
-  const removeElement = (elementId: string) => {
-    setCurrentPanel(prev => ({
-      ...prev,
-      elements: prev.elements.filter(el => el.id !== elementId)
-    }));
-  };
 
   const publishComic = async () => {
     if (!comic.title || !comic.panels || comic.panels.length === 0) return;
@@ -250,116 +178,10 @@ const Upload: React.FC = () => {
             )}
           </div>
 
-          {/* Right Panel - Current Panel Editor */}
+          {/* Right Panel - Panel Upload */}
           <div className="space-y-6">
-            {/* Multi Panel Upload */}
+            {/* Panel Upload */}
             <MultiPanelUpload onPanelsUploaded={handleMultiplePanelsUpload} />
-            
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-purple-100">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Panel Individual</h2>
-                <div className="text-sm text-gray-600">
-                  Para crear un panel a la vez
-                </div>
-              </div>
-              
-              {/* Upload Tools */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e, 'image')}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all">
-                    <Image className="w-8 h-8 text-purple-600 mb-2" />
-                    <span className="text-sm font-medium text-purple-600">Subir Imagen</span>
-                  </div>
-                </label>
-
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".gif"
-                    onChange={(e) => handleFileUpload(e, 'gif')}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all">
-                    <UploadIcon className="w-8 h-8 text-purple-600 mb-2" />
-                    <span className="text-sm font-medium text-purple-600">Subir GIF</span>
-                  </div>
-                </label>
-
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="video/mp4"
-                    onChange={(e) => handleFileUpload(e, 'video')}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all">
-                    <Film className="w-8 h-8 text-purple-600 mb-2" />
-                    <span className="text-sm font-medium text-purple-600">Subir Video</span>
-                  </div>
-                </label>
-
-                <button
-                  onClick={addTextElement}
-                  className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all"
-                >
-                  <FileText className="w-8 h-8 text-purple-600 mb-2" />
-                  <span className="text-sm font-medium text-purple-600">Añadir Texto</span>
-                </button>
-              </div>
-
-              {/* Current Panel Elements */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-gray-800">
-                  Elementos del Panel ({currentPanel.elements.length})
-                </h3>
-                
-                {currentPanel.elements.map((element) => (
-                  <div key={element.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        {element.type === 'text' && <FileText className="w-4 h-4 text-blue-600" />}
-                        {element.type === 'image' && <Image className="w-4 h-4 text-blue-600" />}
-                        {element.type === 'gif' && <UploadIcon className="w-4 h-4 text-blue-600" />}
-                        {element.type === 'video' && <Film className="w-4 h-4 text-blue-600" />}
-                      </div>
-                      <span className="text-gray-700 capitalize">
-                        {element.type === 'text' ? element.content : element.type}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => removeElement(element.id)}
-                      className="p-1 text-red-500 hover:bg-red-50 rounded"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={addPanelToComic}
-                disabled={currentPanel.elements.length === 0}
-                className="w-full mt-6 bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-lg"
-              >
-                <Plus className="w-5 h-5" />
-                <span>➕ Añadir Panel a la Historieta</span>
-              </button>
-
-              {currentPanel.elements.length === 0 && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-yellow-800 text-sm">
-                    <strong>💡 Consejo:</strong> Puedes subir múltiples archivos arriba o crear paneles individuales aquí. 
-                    Agrega elementos y luego añade el panel a tu historieta.
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Advanced Editor Info */}
             {(comic.panels || []).length > 0 && (

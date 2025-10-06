@@ -38,6 +38,13 @@ export interface ComicElement {
   endTime?: number;
   playbackSpeed?: number;
   filters?: MediaFilter[];
+  visible?: boolean;
+  fontWeight?: string;
+  fontStyle?: string;
+  textAlign?: string;
+  appearanceOrder?: number;
+  entranceAnimation?: ElementAnimation;
+  exitAnimation?: ElementAnimation;
 }
 
 export interface MediaFilter {
@@ -56,6 +63,13 @@ export interface Animation {
   delay: number;
   easing?: 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out';
   elementId?: string;
+}
+
+export interface ElementAnimation {
+  type: 'fadeIn' | 'slideIn' | 'zoomIn' | 'bounceIn' | 'rotateIn' | 'fadeOut' | 'slideOut' | 'zoomOut' | 'bounceOut' | 'rotateOut';
+  duration: number;
+  delay?: number;
+  direction?: 'left' | 'right' | 'up' | 'down';
 }
 
 export interface AudioConfig {
