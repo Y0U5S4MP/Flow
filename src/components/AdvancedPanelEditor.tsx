@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
-import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play } from 'lucide-react';
+import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import TypewriterText from './TypewriterText';
 
 interface AdvancedPanelEditorProps {
   panel: Panel;
@@ -27,6 +28,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const [resizingElement, setResizingElement] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [previewAnimation, setPreviewAnimation] = useState(false);
+  const [lockAspectRatio, setLockAspectRatio] = useState(true);
+  const [animationKey, setAnimationKey] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -258,26 +261,32 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       let newX = element.x;
       let newY = element.y;
 
+      const originalAspectRatio = (element.width || 100) / (element.height || 100);
+
       switch (resizeHandle) {
         case 'se':
           newWidth = Math.max(20, mouseX - element.x);
-          newHeight = Math.max(20, mouseY - element.y);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, mouseY - element.y);
           break;
         case 'sw':
           newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
-          newHeight = Math.max(20, mouseY - element.y);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, mouseY - element.y);
           newX = Math.min(element.x, mouseX);
           break;
         case 'ne':
           newWidth = Math.max(20, mouseX - element.x);
-          newHeight = Math.max(20, element.y + (element.height || 100) - mouseY);
-          newY = Math.min(element.y, mouseY);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, element.y + (element.height || 100) - mouseY);
+          if (!lockAspectRatio) {
+            newY = Math.min(element.y, mouseY);
+          }
           break;
         case 'nw':
           newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
-          newHeight = Math.max(20, element.y + (element.height || 100) - mouseY);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, element.y + (element.height || 100) - mouseY);
           newX = Math.min(element.x, mouseX);
-          newY = Math.min(element.y, mouseY);
+          if (!lockAspectRatio) {
+            newY = Math.min(element.y, mouseY);
+          }
           break;
       }
 
@@ -344,12 +353,28 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       zIndex: isSelected ? 1000 : 1
     };
 
+    const animationStyle: React.CSSProperties = element.entranceAnimation ? {
+      '--animation-duration': `${element.entranceAnimation.duration}ms`,
+      '--animation-delay': `${element.entranceAnimation.delay || 0}ms`
+    } as React.CSSProperties : {};
+
     const elementContent = (() => {
       switch (element.type) {
         case 'text':
+          const isTypewriter = previewAnimation && element.entranceAnimation?.type === 'typewriter';
           return (
             <div style={{ ...style, padding: '4px' }}>
-              {element.content}
+              {isTypewriter ? (
+                <TypewriterText
+                  key={animationKey}
+                  text={element.content || ''}
+                  duration={element.entranceAnimation!.duration}
+                  delay={element.entranceAnimation!.delay || 0}
+                  style={{ color: element.color, fontSize: element.fontSize }}
+                />
+              ) : (
+                element.content
+              )}
             </div>
           );
 
@@ -398,11 +423,14 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       }
     })();
 
+    const shouldAnimate = previewAnimation && element.entranceAnimation && element.entranceAnimation.type !== 'typewriter';
+
     return (
       <div
         key={element.id}
         onMouseDown={(e) => handleMouseDown(e, element.id)}
-        className={previewAnimation && element.entranceAnimation ? getAnimationClass(element, 'entrance') : ''}
+        className={shouldAnimate ? getAnimationClass(element, 'entrance') : ''}
+        style={shouldAnimate ? animationStyle : {}}
       >
         {elementContent}
 
@@ -794,15 +822,31 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
 
             {activeTab === 'animations' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-gray-800">Animaciones de Elementos</h4>
-                  <button
-                    onClick={() => setPreviewAnimation(!previewAnimation)}
-                    className={`px-3 py-1 rounded-lg text-sm ${previewAnimation ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
-                  >
-                    <Play className="w-4 h-4 inline mr-1" />
-                    {previewAnimation ? 'Previsualización' : 'Vista Normal'}
-                  </button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-gray-800">Animaciones de Elementos</h4>
+                    <button
+                      onClick={() => {
+                        setPreviewAnimation(!previewAnimation);
+                        if (!previewAnimation) {
+                          setAnimationKey(prev => prev + 1);
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg text-sm ${previewAnimation ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                    >
+                      <Play className="w-4 h-4 inline mr-1" />
+                      {previewAnimation ? 'Detener' : 'Previsualizar'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <span className="text-sm text-gray-700">Bloquear proporción</span>
+                    <button
+                      onClick={() => setLockAspectRatio(!lockAspectRatio)}
+                      className={`p-1 rounded ${lockAspectRatio ? 'text-purple-600' : 'text-gray-400'}`}
+                    >
+                      {lockAspectRatio ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {selectedElement ? (() => {
@@ -829,6 +873,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                           <option value="zoomIn">Zoom In</option>
                           <option value="bounceIn">Rebotar</option>
                           <option value="rotateIn">Rotar</option>
+                          {element.type === 'text' && <option value="typewriter">Máquina de Escribir</option>}
                         </select>
                       </div>
 
@@ -854,22 +899,59 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       </div>
 
                       {element.entranceAnimation && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Duración: {element.entranceAnimation.duration}ms
-                          </label>
-                          <input
-                            type="range"
-                            min="200"
-                            max="3000"
-                            step="100"
-                            value={element.entranceAnimation.duration}
-                            onChange={(e) => updateElement(element.id, {
-                              entranceAnimation: { ...element.entranceAnimation!, duration: Number(e.target.value) }
-                            })}
-                            className="w-full"
-                          />
-                        </div>
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Duración: {element.entranceAnimation.duration}ms
+                            </label>
+                            <input
+                              type="range"
+                              min="200"
+                              max="5000"
+                              step="100"
+                              value={element.entranceAnimation.duration}
+                              onChange={(e) => updateElement(element.id, {
+                                entranceAnimation: { ...element.entranceAnimation!, duration: Number(e.target.value) }
+                              })}
+                              className="w-full"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Retraso: {element.entranceAnimation.delay || 0}ms
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="3000"
+                              step="100"
+                              value={element.entranceAnimation.delay || 0}
+                              onChange={(e) => updateElement(element.id, {
+                                entranceAnimation: { ...element.entranceAnimation!, delay: Number(e.target.value) }
+                              })}
+                              className="w-full"
+                            />
+                          </div>
+
+                          {element.entranceAnimation.type === 'slideIn' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                              <select
+                                value={element.entranceAnimation.direction || 'left'}
+                                onChange={(e) => updateElement(element.id, {
+                                  entranceAnimation: { ...element.entranceAnimation!, direction: e.target.value as any }
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              >
+                                <option value="left">Izquierda</option>
+                                <option value="right">Derecha</option>
+                                <option value="up">Arriba</option>
+                                <option value="down">Abajo</option>
+                              </select>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );

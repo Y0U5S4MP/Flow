@@ -1,8 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Users, BookOpen, Sparkles, ArrowRight } from 'lucide-react';
+import { Zap, Users, BookOpen, Sparkles, ArrowRight, Play } from 'lucide-react';
 
 const Home: React.FC = () => {
+  const [selectedComic, setSelectedComic] = useState<number | null>(null);
+
+  const placeholderComics = [
+    {
+      id: '1',
+      title: 'El Viaje del Héroe',
+      description: 'Una aventura épica con animaciones dinámicas y transiciones suaves',
+      thumbnail: 'https://images.pexels.com/photos/1194713/pexels-photo-1194713.jpeg?auto=compress&cs=tinysrgb&w=400',
+      panels: 5,
+      author: 'Ana García'
+    },
+    {
+      id: '2',
+      title: 'Misterio en la Ciudad',
+      description: 'Un thriller con efectos de sonido inmersivos y música atmosférica',
+      thumbnail: 'https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=400',
+      panels: 8,
+      author: 'Carlos Ruiz'
+    },
+    {
+      id: '3',
+      title: 'Romance Bajo las Estrellas',
+      description: 'Una historia de amor con animaciones de texto tipo máquina de escribir',
+      thumbnail: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=400',
+      panels: 6,
+      author: 'María López'
+    },
+    {
+      id: '4',
+      title: 'Aventuras Espaciales',
+      description: 'Ciencia ficción con efectos visuales y transiciones futuristas',
+      thumbnail: 'https://images.pexels.com/photos/2159/flight-sky-earth-space.jpg?auto=compress&cs=tinysrgb&w=400',
+      panels: 10,
+      author: 'Pedro Sánchez'
+    }
+  ];
+
   const features = [
     {
       icon: Zap,
@@ -52,6 +89,69 @@ const Home: React.FC = () => {
               className="bg-white text-purple-600 px-8 py-4 rounded-xl font-semibold text-lg border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300"
             >
               Explorar Galería
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Comics Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-white to-purple-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">
+              Historietas Destacadas
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Descubre lo que otros creadores están haciendo con Frameflow
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {placeholderComics.map((comic, index) => (
+              <div
+                key={comic.id}
+                className="group bg-white rounded-2xl overflow-hidden border border-gray-200 hover:border-purple-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+                onClick={() => setSelectedComic(selectedComic === index ? null : index)}
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={comic.thumbnail}
+                    alt={comic.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="flex items-center space-x-2 text-white">
+                        <Play className="w-5 h-5" />
+                        <span className="text-sm font-medium">Ver Historieta</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    {comic.panels} paneles
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-1">{comic.title}</h3>
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{comic.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Por {comic.author}</span>
+                    <div className="flex items-center space-x-1 text-purple-600">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Link
+              to="/gallery"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <span>Ver Todas las Historietas</span>
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
         </div>

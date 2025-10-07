@@ -1,3 +1,251 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes slideOutUp {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes slideOutDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes zoomOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes rotateIn {
+  from {
+    transform: rotate(-360deg) scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rotateOut {
+  from {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(360deg) scale(0);
+    opacity: 0;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-fadeOut {
+  animation: fadeOut var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideIn-left {
+  animation: slideInLeft var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideIn-right {
+  animation: slideInRight var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideIn-up {
+  animation: slideInUp var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideIn-down {
+  animation: slideInDown var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideOut-left {
+  animation: slideOutLeft var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideOut-right {
+  animation: slideOutRight var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideOut-up {
+  animation: slideOutUp var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-slideOut-down {
+  animation: slideOutDown var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-zoomIn {
+  animation: zoomIn var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-zoomOut {
+  animation: zoomOut var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-bounceIn {
+  animation: bounceIn var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-bounceOut {
+  animation: bounceOut var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-rotateIn {
+  animation: rotateIn var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}
+
+.animate-rotateOut {
+  animation: rotateOut var(--animation-duration, 1s) var(--animation-delay, 0s) forwards;
+}

@@ -66,7 +66,7 @@ export interface Animation {
 }
 
 export interface ElementAnimation {
-  type: 'fadeIn' | 'slideIn' | 'zoomIn' | 'bounceIn' | 'rotateIn' | 'fadeOut' | 'slideOut' | 'zoomOut' | 'bounceOut' | 'rotateOut';
+  type: 'fadeIn' | 'slideIn' | 'zoomIn' | 'bounceIn' | 'rotateIn' | 'typewriter' | 'fadeOut' | 'slideOut' | 'zoomOut' | 'bounceOut' | 'rotateOut';
   duration: number;
   delay?: number;
   direction?: 'left' | 'right' | 'up' | 'down';
