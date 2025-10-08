@@ -45,6 +45,9 @@ export interface ComicElement {
   appearanceOrder?: number;
   entranceAnimation?: ElementAnimation;
   exitAnimation?: ElementAnimation;
+  rotation?: number;
+  flipHorizontal?: boolean;
+  flipVertical?: boolean;
 }
 
 export interface MediaFilter {

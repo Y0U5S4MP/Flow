@@ -130,6 +130,52 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     addToHistory(updatedPanel);
   };
 
+  const duplicateElement = () => {
+    if (!selectedElement) return;
+    const element = localPanel.elements.find(el => el.id === selectedElement);
+    if (!element) return;
+
+    const maxOrder = Math.max(0, ...localPanel.elements.map(el => el.appearanceOrder || 0));
+    const newElement: ComicElement = {
+      ...element,
+      id: uuidv4(),
+      x: element.x + 30,
+      y: element.y + 30,
+      appearanceOrder: maxOrder + 1
+    };
+
+    const updatedPanel: Panel = {
+      ...localPanel,
+      elements: [...localPanel.elements, newElement]
+    };
+    addToHistory(updatedPanel);
+    setSelectedElement(newElement.id);
+  };
+
+  const rotateElement = (degrees: number) => {
+    if (!selectedElement) return;
+    const element = localPanel.elements.find(el => el.id === selectedElement);
+    if (!element || element.type === 'text') return;
+
+    const currentRotation = (element as any).rotation || 0;
+    updateElement(selectedElement, { rotation: currentRotation + degrees } as any);
+  };
+
+  const flipElement = (direction: 'horizontal' | 'vertical') => {
+    if (!selectedElement) return;
+    const element = localPanel.elements.find(el => el.id === selectedElement);
+    if (!element || element.type === 'text') return;
+
+    const flipH = (element as any).flipHorizontal || false;
+    const flipV = (element as any).flipVertical || false;
+
+    if (direction === 'horizontal') {
+      updateElement(selectedElement, { flipHorizontal: !flipH } as any);
+    } else {
+      updateElement(selectedElement, { flipVertical: !flipV } as any);
+    }
+  };
+
   const exportPanel = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -215,10 +261,19 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const element = localPanel.elements.find(el => el.id === elementId);
       if (!element) return;
 
-      const rect = e.currentTarget.getBoundingClientRect();
+      const canvas = document.querySelector('.editor-canvas') as HTMLElement;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = 800 / 1600;
+      const scaleY = 600 / 900;
+
+      const canvasMouseX = (e.clientX - rect.left) / (zoom / 100);
+      const canvasMouseY = (e.clientY - rect.top) / (zoom / 100);
+
       setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: canvasMouseX - (element.x * scaleX),
+        y: canvasMouseY - (element.y * scaleY)
       });
     }
   };
@@ -232,10 +287,13 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const rect = canvas.getBoundingClientRect();
 
       const scaleX = 1600 / 800;
-      const scaleY = 900 / 600;
+      const scaleY = 600 / 900;
 
-      const newX = ((e.clientX - rect.left - dragOffset.x) / (zoom / 100)) * scaleX;
-      const newY = ((e.clientY - rect.top - dragOffset.y) / (zoom / 100)) * scaleY;
+      const canvasMouseX = (e.clientX - rect.left) / (zoom / 100);
+      const canvasMouseY = (e.clientY - rect.top) / (zoom / 100);
+
+      const newX = (canvasMouseX - dragOffset.x) * scaleX;
+      const newY = (canvasMouseY - dragOffset.y) * scaleY;
 
       updateElement(draggingElement, {
         x: Math.max(0, Math.min(1600 - (element.width || 100), newX)),
@@ -336,6 +394,15 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     const scaleX = 800 / 1600;
     const scaleY = 600 / 900;
 
+    const rotation = (element as any).rotation || 0;
+    const flipH = (element as any).flipHorizontal || false;
+    const flipV = (element as any).flipVertical || false;
+
+    const transforms = [];
+    if (rotation !== 0) transforms.push(`rotate(${rotation}deg)`);
+    if (flipH) transforms.push('scaleX(-1)');
+    if (flipV) transforms.push('scaleY(-1)');
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${element.x * scaleX}px`,
@@ -350,7 +417,9 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       cursor: draggingElement === element.id ? 'grabbing' : 'grab',
       border: isSelected ? '2px solid #8b5cf6' : 'none',
       userSelect: 'none',
-      zIndex: isSelected ? 1000 : 1
+      zIndex: isSelected ? 1000 : 1,
+      transform: transforms.length > 0 ? transforms.join(' ') : undefined,
+      transformOrigin: 'center'
     };
 
     const animationStyle: React.CSSProperties = element.entranceAnimation ? {
@@ -535,7 +604,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         <div className="flex flex-1 overflow-hidden">
           <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden relative">
             <div
-              className="relative bg-white mx-auto"
+              className="editor-canvas relative bg-white mx-auto"
               style={{
                 width: `${800}px`,
                 height: `${600}px`,
@@ -767,6 +836,48 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                   return (
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-800">Propiedades</h4>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={duplicateElement}
+                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-medium"
+                        >
+                          Duplicar
+                        </button>
+                        {element.type !== 'text' && (
+                          <>
+                            <button
+                              onClick={() => rotateElement(90)}
+                              className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-medium"
+                            >
+                              Rotar 90°
+                            </button>
+                            <button
+                              onClick={() => flipElement('horizontal')}
+                              className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium"
+                            >
+                              Voltear H
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {element.type !== 'text' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => flipElement('vertical')}
+                            className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium"
+                          >
+                            Voltear V
+                          </button>
+                          <button
+                            onClick={() => rotateElement(-90)}
+                            className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-medium"
+                          >
+                            Rotar -90°
+                          </button>
+                        </div>
+                      )}
                       {element.type === 'text' && (
                         <>
                           <div>
