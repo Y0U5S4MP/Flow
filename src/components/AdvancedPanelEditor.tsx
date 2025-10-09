@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
-import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock } from 'lucide-react';
+import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock, Minus, ArrowRight, Smile } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import TypewriterText from './TypewriterText';
 
@@ -27,6 +27,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizingElement, setResizingElement] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0, x: 0, y: 0 });
+  const [resizeStartMouse, setResizeStartMouse] = useState({ x: 0, y: 0 });
   const [previewAnimation, setPreviewAnimation] = useState(false);
   const [lockAspectRatio, setLockAspectRatio] = useState(true);
   const [animationKey, setAnimationKey] = useState(0);
@@ -256,6 +258,24 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     if (handle) {
       setResizingElement(elementId);
       setResizeHandle(handle);
+
+      const element = localPanel.elements.find(el => el.id === elementId);
+      if (!element) return;
+
+      const canvas = document.querySelector('.editor-canvas') as HTMLElement;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+
+      setResizeStartSize({
+        width: element.width || 100,
+        height: element.height || 100,
+        x: element.x,
+        y: element.y
+      });
+      setResizeStartMouse({
+        x: e.clientX,
+        y: e.clientY
+      });
     } else {
       setDraggingElement(elementId);
       const element = localPanel.elements.find(el => el.id === elementId);
@@ -305,46 +325,43 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const element = localPanel.elements.find(el => el.id === resizingElement);
       if (!element) return;
 
-      const canvas = e.currentTarget as HTMLElement;
-      const rect = canvas.getBoundingClientRect();
-
       const scaleX = 1600 / 800;
       const scaleY = 900 / 600;
 
-      const mouseX = ((e.clientX - rect.left) / (zoom / 100)) * scaleX;
-      const mouseY = ((e.clientY - rect.top) / (zoom / 100)) * scaleY;
+      const mouseDeltaX = (e.clientX - resizeStartMouse.x) / (zoom / 100) * scaleX;
+      const mouseDeltaY = (e.clientY - resizeStartMouse.y) / (zoom / 100) * scaleY;
 
-      let newWidth = element.width || 100;
-      let newHeight = element.height || 100;
-      let newX = element.x;
-      let newY = element.y;
+      let newWidth = resizeStartSize.width;
+      let newHeight = resizeStartSize.height;
+      let newX = resizeStartSize.x;
+      let newY = resizeStartSize.y;
 
-      const originalAspectRatio = (element.width || 100) / (element.height || 100);
+      const originalAspectRatio = resizeStartSize.width / resizeStartSize.height;
 
       switch (resizeHandle) {
         case 'se':
-          newWidth = Math.max(20, mouseX - element.x);
-          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, mouseY - element.y);
+          newWidth = Math.max(20, resizeStartSize.width + mouseDeltaX);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, resizeStartSize.height + mouseDeltaY);
           break;
         case 'sw':
-          newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
-          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, mouseY - element.y);
-          newX = Math.min(element.x, mouseX);
+          newWidth = Math.max(20, resizeStartSize.width - mouseDeltaX);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, resizeStartSize.height + mouseDeltaY);
+          newX = resizeStartSize.x + (resizeStartSize.width - newWidth);
           break;
         case 'ne':
-          newWidth = Math.max(20, mouseX - element.x);
-          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, element.y + (element.height || 100) - mouseY);
+          newWidth = Math.max(20, resizeStartSize.width + mouseDeltaX);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, resizeStartSize.height - mouseDeltaY);
           if (!lockAspectRatio) {
-            newY = Math.min(element.y, mouseY);
+            newY = resizeStartSize.y + (resizeStartSize.height - newHeight);
+          } else {
+            newY = resizeStartSize.y + (resizeStartSize.height - newHeight);
           }
           break;
         case 'nw':
-          newWidth = Math.max(20, element.x + (element.width || 100) - mouseX);
-          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, element.y + (element.height || 100) - mouseY);
-          newX = Math.min(element.x, mouseX);
-          if (!lockAspectRatio) {
-            newY = Math.min(element.y, mouseY);
-          }
+          newWidth = Math.max(20, resizeStartSize.width - mouseDeltaX);
+          newHeight = lockAspectRatio ? newWidth / originalAspectRatio : Math.max(20, resizeStartSize.height - mouseDeltaY);
+          newX = resizeStartSize.x + (resizeStartSize.width - newWidth);
+          newY = resizeStartSize.y + (resizeStartSize.height - newHeight);
           break;
       }
 
@@ -485,6 +502,68 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 borderRadius: element.shape === 'circle' ? '50%' : '0'
               }}
             />
+          );
+
+        case 'line':
+          return (
+            <div
+              style={{
+                ...style,
+                height: `${element.strokeWidth || 2}px`,
+                backgroundColor: element.color,
+                width: element.width ? `${element.width * scaleX}px` : '100px'
+              }}
+            />
+          );
+
+        case 'arrow':
+          return (
+            <svg
+              style={{
+                ...style,
+                width: element.width ? `${element.width * scaleX}px` : '100px',
+                height: `${20 * scaleY}px`
+              }}
+              viewBox="0 0 100 20"
+            >
+              <defs>
+                <marker
+                  id={`arrowhead-${element.id}`}
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="9"
+                  refY="3"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3, 0 6" fill={element.color || '#000000'} />
+                </marker>
+              </defs>
+              <line
+                x1="0"
+                y1="10"
+                x2="95"
+                y2="10"
+                stroke={element.color || '#000000'}
+                strokeWidth={element.strokeWidth || 2}
+                markerEnd={`url(#arrowhead-${element.id})`}
+              />
+            </svg>
+          );
+
+        case 'sticker':
+          return (
+            <div
+              style={{
+                ...style,
+                fontSize: `${(element.width || 80) * scaleX * 0.8}px`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: element.opacity || 1
+              }}
+            >
+              {element.stickerType || '😊'}
+            </div>
           );
 
         default:
@@ -764,6 +843,69 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                     >
                       <ImageIcon className="w-5 h-5 mx-auto mb-1 text-purple-600" />
                       <span className="text-xs">Imagen</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const element: ComicElement = {
+                          id: uuidv4(),
+                          type: 'line',
+                          x: 200,
+                          y: 200,
+                          width: 200,
+                          height: 2,
+                          color: '#000000',
+                          strokeWidth: 2
+                        };
+                        addElement(element);
+                        setSelectedElement(element.id);
+                      }}
+                      className="p-3 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all text-center"
+                    >
+                      <Minus className="w-5 h-5 mx-auto mb-1 text-purple-600" />
+                      <span className="text-xs">Línea</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const element: ComicElement = {
+                          id: uuidv4(),
+                          type: 'arrow',
+                          x: 200,
+                          y: 250,
+                          width: 200,
+                          height: 2,
+                          color: '#ef4444',
+                          strokeWidth: 3
+                        };
+                        addElement(element);
+                        setSelectedElement(element.id);
+                      }}
+                      className="p-3 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all text-center"
+                    >
+                      <ArrowRight className="w-5 h-5 mx-auto mb-1 text-purple-600" />
+                      <span className="text-xs">Flecha</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const element: ComicElement = {
+                          id: uuidv4(),
+                          type: 'sticker',
+                          x: 300,
+                          y: 300,
+                          width: 80,
+                          height: 80,
+                          stickerType: '😊',
+                          opacity: 1
+                        };
+                        addElement(element);
+                        setSelectedElement(element.id);
+                      }}
+                      className="p-3 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all text-center"
+                    >
+                      <Smile className="w-5 h-5 mx-auto mb-1 text-purple-600" />
+                      <span className="text-xs">Sticker</span>
                     </button>
                   </div>
                 </div>

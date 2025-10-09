@@ -17,7 +17,7 @@ export interface Panel {
 
 export interface ComicElement {
   id: string;
-  type: 'text' | 'brush' | 'shape' | 'image' | 'gif' | 'video';
+  type: 'text' | 'brush' | 'shape' | 'image' | 'gif' | 'video' | 'line' | 'arrow' | 'sticker';
   x: number;
   y: number;
   width?: number;
@@ -48,6 +48,10 @@ export interface ComicElement {
   rotation?: number;
   flipHorizontal?: boolean;
   flipVertical?: boolean;
+  opacity?: number;
+  lineStart?: Point;
+  lineEnd?: Point;
+  stickerType?: string;
 }
 
 export interface MediaFilter {

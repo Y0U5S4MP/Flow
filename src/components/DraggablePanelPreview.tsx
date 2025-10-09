@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Panel, ComicElement } from '../types/Comic';
-import { 
-  FileText, Image, Film, Upload as UploadIcon, 
-  Edit, Trash2, GripVertical, Eye, EyeOff, Copy, 
-  RotateCw, Move3D, Zap, Music, Sparkles
+import {
+  FileText, Image, Film, Upload as UploadIcon,
+  Edit, Trash2, Eye, EyeOff, Copy,
+  RotateCw, Move3D, Zap, Music, Sparkles, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 interface DraggablePanelPreviewProps {
   panels: Panel[];
@@ -24,13 +23,17 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
 }) => {
   const [hiddenPanels, setHiddenPanels] = useState<Set<number>>(new Set());
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-
+  const movePanelUp = (index: number) => {
+    if (index === 0) return;
     const items = Array.from(panels);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    [items[index - 1], items[index]] = [items[index], items[index - 1]];
+    onPanelsReorder(items);
+  };
 
+  const movePanelDown = (index: number) => {
+    if (index === panels.length - 1) return;
+    const items = Array.from(panels);
+    [items[index], items[index + 1]] = [items[index + 1], items[index]];
     onPanelsReorder(items);
   };
 
@@ -219,43 +222,40 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
           Previsualización ({panels.length} panel{panels.length !== 1 ? 'es' : ''})
         </h3>
         <div className="text-sm text-gray-600">
-          Arrastra para reordenar
+          Usa las flechas para reordenar
         </div>
       </div>
       
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="panels">
-          {(provided, snapshot) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className={`space-y-4 max-h-96 overflow-y-auto transition-colors ${
-                snapshot.isDraggingOver ? 'bg-purple-50' : ''
-              }`}
-            >
-              {panels.map((panel, index) => (
-                <Draggable key={panel.id} draggableId={panel.id} index={index}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      className={`relative border-2 rounded-lg transition-all duration-200 ${
-                        snapshot.isDragging
-                          ? 'border-purple-500 bg-purple-100 shadow-lg rotate-2'
-                          : index === currentPanelIndex
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300 bg-white'
-                      } ${hiddenPanels.has(index) ? 'opacity-50' : ''}`}
-                    >
+      <div className="space-y-4 max-h-96 overflow-y-auto">
+        {panels.map((panel, index) => (
+          <div
+            key={panel.id}
+            className={`relative border-2 rounded-lg transition-all duration-200 ${
+              index === currentPanelIndex
+                ? 'border-purple-500 bg-purple-50'
+                : 'border-gray-200 hover:border-purple-300 bg-white'
+            } ${hiddenPanels.has(index) ? 'opacity-50' : ''}`}
+          >
                       {/* Panel Header */}
                       <div className="flex items-center justify-between p-3 border-b border-gray-100">
                         <div className="flex items-center space-x-2">
-                          <div
-                            {...provided.dragHandleProps}
-                            className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded transition-colors"
-                            title="Arrastra para reordenar"
-                          >
-                            <GripVertical className="w-4 h-4 text-gray-400" />
+                          <div className="flex flex-col">
+                            <button
+                              onClick={() => movePanelUp(index)}
+                              disabled={index === 0}
+                              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Mover arriba"
+                            >
+                              <ArrowUp className="w-3 h-3 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={() => movePanelDown(index)}
+                              disabled={index === panels.length - 1}
+                              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Mover abajo"
+                            >
+                              <ArrowDown className="w-3 h-3 text-gray-600" />
+                            </button>
                           </div>
                           <div className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                             {index + 1}
@@ -377,22 +377,16 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+          </div>
+        ))}
+      </div>
 
       {panels.length > 0 && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-blue-800 text-sm">
             <strong>💡 Consejos:</strong> 
-            • Arrastra el ícono ⋮⋮ para reordenar paneles
-            • Usa 📋 para duplicar paneles
+            • Usa las flechas ↑↓ para reordenar paneles
+            • Usa el botón de copiar para duplicar paneles
             • Los puntos de colores indican tipos de contenido
             • Los badges muestran animaciones, transiciones y efectos aplicados
           </p>
