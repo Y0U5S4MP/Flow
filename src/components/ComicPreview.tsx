@@ -34,6 +34,17 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
     }
   }, [isMuted, backgroundMusicAudio]);
 
+  const nextPanel = () => {
+    if (!comic.panels) return;
+    setCurrentPanelIndex(prev =>
+      prev < comic.panels!.length - 1 ? prev + 1 : prev
+    );
+  };
+
+  const prevPanel = () => {
+    setCurrentPanelIndex(prev => prev > 0 ? prev - 1 : prev);
+  };
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -74,16 +85,6 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   if (!isOpen || !comic.panels || comic.panels.length === 0) return null;
 
   const currentPanel = comic.panels[currentPanelIndex];
-
-  const nextPanel = () => {
-    setCurrentPanelIndex(prev => 
-      prev < comic.panels!.length - 1 ? prev + 1 : prev
-    );
-  };
-
-  const prevPanel = () => {
-    setCurrentPanelIndex(prev => prev > 0 ? prev - 1 : prev);
-  };
 
   const renderElement = (element: ComicElement) => {
     const panelWidth = currentPanel.panelWidth || 1600;

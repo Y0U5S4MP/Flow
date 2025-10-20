@@ -156,6 +156,14 @@ const Upload: React.FC = () => {
               onPanelsReorder={handlePanelsReorder}
               onPanelEdit={handlePanelEdit}
               onPanelDelete={handlePanelDelete}
+              onTransitionUpdate={(panelIndex, transition) => {
+                const updatedPanels = [...(comic.panels || [])];
+                updatedPanels[panelIndex] = {
+                  ...updatedPanels[panelIndex],
+                  transitions: [transition]
+                };
+                setComic(prev => ({ ...prev, panels: updatedPanels }));
+              }}
             />
 
             {/* Background Music */}
@@ -210,76 +218,6 @@ const Upload: React.FC = () => {
               </div>
             )}
 
-            {/* Panel Transitions */}
-            {(comic.panels || []).length > 1 && (
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-blue-100">
-                <div className="flex items-center space-x-3 mb-4">
-                  <ArrowRightLeft className="w-6 h-6 text-blue-600" />
-                  <h3 className="text-xl font-bold text-gray-800">Transiciones entre Paneles</h3>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">
-                  Configura transiciones animadas entre cada panel
-                </p>
-                <div className="space-y-3">
-                  {(comic.panels || []).map((panel, index) => {
-                    if (index === (comic.panels || []).length - 1) return null;
-                    const transition = panel.transitions?.[0];
-
-                    return (
-                      <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">
-                            Panel {index + 1} → Panel {index + 2}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <select
-                            value={transition?.type || 'fade'}
-                            onChange={(e) => {
-                              const updatedPanels = [...(comic.panels || [])];
-                              updatedPanels[index] = {
-                                ...updatedPanels[index],
-                                transitions: [{
-                                  type: e.target.value as any,
-                                  duration: transition?.duration || 500
-                                }]
-                              };
-                              setComic(prev => ({ ...prev, panels: updatedPanels }));
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          >
-                            <option value="fade">Fade</option>
-                            <option value="slide">Slide</option>
-                            <option value="zoom">Zoom</option>
-                            <option value="flip">Flip</option>
-                          </select>
-                          <input
-                            type="number"
-                            value={transition?.duration || 500}
-                            onChange={(e) => {
-                              const updatedPanels = [...(comic.panels || [])];
-                              updatedPanels[index] = {
-                                ...updatedPanels[index],
-                                transitions: [{
-                                  type: transition?.type || 'fade',
-                                  duration: Number(e.target.value)
-                                }]
-                              };
-                              setComic(prev => ({ ...prev, panels: updatedPanels }));
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="Duración (ms)"
-                            min="100"
-                            max="2000"
-                            step="100"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Publish Button */}
             <button

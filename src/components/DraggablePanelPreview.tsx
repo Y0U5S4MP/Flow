@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Panel, ComicElement } from '../types/Comic';
+import { Panel, ComicElement, Transition } from '../types/Comic';
 import {
   FileText, Image, Film, Upload as UploadIcon,
   Edit, Trash2, Eye, EyeOff, Copy,
-  RotateCw, Move3D, Zap, Music, Sparkles, ArrowUp, ArrowDown
+  RotateCw, Move3D, Zap, Music, Sparkles, ArrowUp, ArrowDown, ArrowRightLeft
 } from 'lucide-react';
 
 interface DraggablePanelPreviewProps {
@@ -11,14 +11,16 @@ interface DraggablePanelPreviewProps {
   onPanelsReorder: (panels: Panel[]) => void;
   onPanelEdit: (panel: Panel, index: number) => void;
   onPanelDelete: (index: number) => void;
+  onTransitionUpdate?: (panelIndex: number, transition: Transition) => void;
   currentPanelIndex?: number;
 }
 
-const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({ 
-  panels, 
+const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
+  panels,
   onPanelsReorder,
   onPanelEdit,
   onPanelDelete,
+  onTransitionUpdate,
   currentPanelIndex = -1
 }) => {
   const [hiddenPanels, setHiddenPanels] = useState<Set<number>>(new Set());
@@ -377,6 +379,52 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
                           </div>
                         )}
                       </div>
+
+                      {/* Transition Control */}
+                      {index < panels.length - 1 && onTransitionUpdate && (
+                        <div className="p-3 bg-blue-50 border-t border-blue-100">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                            <span className="text-xs font-medium text-blue-800">
+                              Transición → Panel {index + 2}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              value={panel.transitions?.[0]?.type || 'fade'}
+                              onChange={(e) => {
+                                const transition = panel.transitions?.[0];
+                                onTransitionUpdate(index, {
+                                  type: e.target.value as any,
+                                  duration: transition?.duration || 500
+                                });
+                              }}
+                              className="px-2 py-1.5 border border-blue-200 rounded text-xs bg-white"
+                            >
+                              <option value="fade">Fade</option>
+                              <option value="slide">Slide</option>
+                              <option value="zoom">Zoom</option>
+                              <option value="flip">Flip</option>
+                            </select>
+                            <input
+                              type="number"
+                              value={panel.transitions?.[0]?.duration || 500}
+                              onChange={(e) => {
+                                const transition = panel.transitions?.[0];
+                                onTransitionUpdate(index, {
+                                  type: transition?.type || 'fade',
+                                  duration: Number(e.target.value)
+                                });
+                              }}
+                              className="px-2 py-1.5 border border-blue-200 rounded text-xs"
+                              placeholder="ms"
+                              min="100"
+                              max="2000"
+                              step="100"
+                            />
+                          </div>
+                        </div>
+                      )}
           </div>
         ))}
       </div>
