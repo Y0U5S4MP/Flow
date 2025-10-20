@@ -644,7 +644,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
               <ZoomIn className="w-4 h-4" />
             </button>
             <button
-              onClick={onClose}
+              onClick={() => {
+                onPanelUpdate(localPanel);
+                onClose();
+              }}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
@@ -1485,10 +1488,13 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             </button>
 
             <button
-              onClick={onClose}
+              onClick={() => {
+                onPanelUpdate(localPanel);
+                onClose();
+              }}
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
-              Guardar
+              Guardar y Cerrar
             </button>
           </div>
         </div>

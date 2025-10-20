@@ -10,11 +10,9 @@ interface ComicPreviewProps {
 
 const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) => {
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isAutoPlay, setIsAutoPlay] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
   const [backgroundMusicAudio, setBackgroundMusicAudio] = useState<HTMLAudioElement | null>(null);
-  const [transitionClass, setTransitionClass] = useState<string>('');
 
   useEffect(() => {
     if (isOpen && comic.backgroundMusic?.backgroundMusic) {
@@ -22,6 +20,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       audio.loop = comic.backgroundMusic.backgroundMusic.loop;
       audio.volume = isMuted ? 0 : (comic.backgroundMusic.backgroundMusic.volume || 0.5);
       setBackgroundMusicAudio(audio);
+      audio.play().catch(e => console.log('Audio play failed:', e));
       return () => {
         audio.pause();
         audio.remove();
@@ -31,52 +30,37 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
 
   useEffect(() => {
     if (backgroundMusicAudio) {
-      if (isPlaying && !isMuted) {
-        backgroundMusicAudio.play().catch(e => console.log('Audio play failed:', e));
-      } else {
-        backgroundMusicAudio.pause();
-      }
-    }
-  }, [isPlaying, backgroundMusicAudio]);
-
-  useEffect(() => {
-    if (backgroundMusicAudio) {
       backgroundMusicAudio.volume = isMuted ? 0 : (comic.backgroundMusic?.backgroundMusic?.volume || 0.5);
     }
   }, [isMuted, backgroundMusicAudio]);
 
   useEffect(() => {
-    setVisibleElements(new Set());
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isOpen) return;
 
-    if (!comic.panels?.[currentPanelIndex]) return;
+      if (e.key === 'ArrowRight') {
+        nextPanel();
+      } else if (e.key === 'ArrowLeft') {
+        prevPanel();
+      } else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        setIsAutoPlay(prev => !prev);
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
 
-    const currentPanel = comic.panels[currentPanelIndex];
-    const sortedElements = [...currentPanel.elements].sort((a, b) =>
-      (a.appearanceOrder || 0) - (b.appearanceOrder || 0)
-    );
-
-    sortedElements.forEach((element) => {
-      const delay = element.appearanceDelay || 0;
-      setTimeout(() => {
-        setVisibleElements(prev => new Set([...prev, element.id]));
-
-        if (element.soundEffect && !isMuted) {
-          const audio = new Audio(element.soundEffect);
-          audio.volume = 0.7;
-          audio.play().catch(e => console.log('Sound effect play failed:', e));
-        }
-      }, delay);
-    });
-  }, [currentPanelIndex, comic.panels, isMuted]);
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isOpen, currentPanelIndex, comic.panels, isAutoPlay]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (isPlaying && comic.panels && comic.panels.length > 0) {
+    if (isAutoPlay && comic.panels && comic.panels.length > 0) {
       interval = setInterval(() => {
         setCurrentPanelIndex(prev => {
           if (prev >= comic.panels!.length - 1) {
-            setIsPlaying(false);
             return 0;
           }
           return prev + 1;
@@ -85,7 +69,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
     }
 
     return () => clearInterval(interval);
-  }, [isPlaying, comic.panels]);
+  }, [isAutoPlay, comic.panels]);
 
   if (!isOpen || !comic.panels || comic.panels.length === 0) return null;
 
@@ -102,8 +86,6 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   };
 
   const renderElement = (element: ComicElement) => {
-    if (!visibleElements.has(element.id)) return null;
-
     const panelWidth = currentPanel.panelWidth || 1600;
     const panelHeight = currentPanel.panelHeight || 900;
     const scaleX = 1600 / panelWidth;
@@ -323,6 +305,9 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
           </div>
           
           <div className="flex items-center space-x-4">
+            <span className="text-white/60 text-xs hidden md:block">
+              ← → Flechas para navegar | Espacio para auto-play
+            </span>
             <button
               onClick={() => setIsMuted(!isMuted)}
               className="text-white hover:text-purple-300 transition-colors"
@@ -375,10 +360,10 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
             </button>
             
             <button
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={() => setIsAutoPlay(!isAutoPlay)}
               className="p-4 bg-purple-600 hover:bg-purple-700 rounded-full text-white transition-all duration-200 transform hover:scale-105"
             >
-              {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+              {isAutoPlay ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
             </button>
             
             <button
