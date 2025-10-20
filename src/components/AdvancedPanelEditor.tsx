@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
-import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock, Minus, ArrowRight, Smile } from 'lucide-react';
+import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock, Minus, ArrowRight, Smile, Settings } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import TypewriterText from './TypewriterText';
 
@@ -15,7 +15,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   onPanelUpdate,
   onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'elements' | 'animations' | 'order'>('elements');
+  const [activeTab, setActiveTab] = useState<'elements' | 'animations' | 'order' | 'panel'>('elements');
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [showGrid, setShowGrid] = useState(false);
@@ -33,6 +33,11 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   const [lockAspectRatio, setLockAspectRatio] = useState(true);
   const [animationKey, setAnimationKey] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const panelWidth = localPanel.panelWidth || 1600;
+  const panelHeight = localPanel.panelHeight || 900;
+  const canvasDisplayWidth = 800;
+  const canvasDisplayHeight = (panelHeight / panelWidth) * canvasDisplayWidth;
 
   useEffect(() => {
     setLocalPanel(panel);
@@ -281,19 +286,13 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const element = localPanel.elements.find(el => el.id === elementId);
       if (!element) return;
 
-      const canvas = document.querySelector('.editor-canvas') as HTMLElement;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = 800 / 1600;
-      const scaleY = 600 / 900;
-
-      const canvasMouseX = (e.clientX - rect.left) / (zoom / 100);
-      const canvasMouseY = (e.clientY - rect.top) / (zoom / 100);
-
       setDragOffset({
-        x: canvasMouseX - (element.x * scaleX),
-        y: canvasMouseY - (element.y * scaleY)
+        x: element.x,
+        y: element.y
+      });
+      setResizeStartMouse({
+        x: e.clientX,
+        y: e.clientY
       });
     }
   };
@@ -303,21 +302,18 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const element = localPanel.elements.find(el => el.id === draggingElement);
       if (!element) return;
 
-      const canvas = e.currentTarget as HTMLElement;
-      const rect = canvas.getBoundingClientRect();
+      const scaleX = panelWidth / canvasDisplayWidth;
+      const scaleY = panelHeight / canvasDisplayHeight;
 
-      const scaleX = 1600 / 800;
-      const scaleY = 600 / 900;
+      const mouseDeltaX = (e.clientX - resizeStartMouse.x) / (zoom / 100) * scaleX;
+      const mouseDeltaY = (e.clientY - resizeStartMouse.y) / (zoom / 100) * scaleY;
 
-      const canvasMouseX = (e.clientX - rect.left) / (zoom / 100);
-      const canvasMouseY = (e.clientY - rect.top) / (zoom / 100);
-
-      const newX = (canvasMouseX - dragOffset.x) * scaleX;
-      const newY = (canvasMouseY - dragOffset.y) * scaleY;
+      const newX = dragOffset.x + mouseDeltaX;
+      const newY = dragOffset.y + mouseDeltaY;
 
       updateElement(draggingElement, {
-        x: Math.max(0, Math.min(1600 - (element.width || 100), newX)),
-        y: Math.max(0, Math.min(900 - (element.height || 100), newY))
+        x: Math.max(0, Math.min(panelWidth - (element.width || 100), newX)),
+        y: Math.max(0, Math.min(panelHeight - (element.height || 100), newY))
       });
     }
 
@@ -325,8 +321,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       const element = localPanel.elements.find(el => el.id === resizingElement);
       if (!element) return;
 
-      const scaleX = 1600 / 800;
-      const scaleY = 900 / 600;
+      const scaleX = panelWidth / canvasDisplayWidth;
+      const scaleY = panelHeight / canvasDisplayHeight;
 
       const mouseDeltaX = (e.clientX - resizeStartMouse.x) / (zoom / 100) * scaleX;
       const mouseDeltaY = (e.clientY - resizeStartMouse.y) / (zoom / 100) * scaleY;
@@ -408,8 +404,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
 
   const renderElement = (element: ComicElement) => {
     const isSelected = selectedElement === element.id;
-    const scaleX = 800 / 1600;
-    const scaleY = 600 / 900;
+    const scaleX = canvasDisplayWidth / panelWidth;
+    const scaleY = canvasDisplayHeight / panelHeight;
 
     const rotation = (element as any).rotation || 0;
     const flipH = (element as any).flipHorizontal || false;
@@ -582,30 +578,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       >
         {elementContent}
 
-        {isSelected && element.type !== 'text' && (
-          <>
-            <div
-              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-nw-resize"
-              style={{ left: '-6px', top: '-6px' }}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'nw'); }}
-            />
-            <div
-              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-ne-resize"
-              style={{ right: '-6px', top: '-6px' }}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'ne'); }}
-            />
-            <div
-              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-sw-resize"
-              style={{ left: '-6px', bottom: '-6px' }}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'sw'); }}
-            />
-            <div
-              className="absolute w-3 h-3 bg-white border-2 border-purple-600 rounded-full cursor-se-resize"
-              style={{ right: '-6px', bottom: '-6px' }}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, element.id, 'se'); }}
-            />
-          </>
-        )}
       </div>
     );
   };
@@ -685,10 +657,14 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             <div
               className="editor-canvas relative bg-white mx-auto"
               style={{
-                width: `${800}px`,
-                height: `${600}px`,
+                width: `${canvasDisplayWidth}px`,
+                height: `${canvasDisplayHeight}px`,
                 transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top left'
+                transformOrigin: 'top left',
+                backgroundColor: localPanel.backgroundColor || '#ffffff',
+                backgroundImage: localPanel.backgroundImage ? `url(${localPanel.backgroundImage})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
               }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -718,7 +694,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             {[
               { key: 'elements', icon: Layers, label: 'Elementos' },
               { key: 'animations', icon: Play, label: 'Animaciones' },
-              { key: 'order', icon: ArrowUp, label: 'Orden' }
+              { key: 'order', icon: ArrowUp, label: 'Orden' },
+              { key: 'panel', icon: Settings, label: 'Panel' }
             ].map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
@@ -1020,6 +997,95 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                           </button>
                         </div>
                       )}
+
+                      <div className="space-y-3 border-t pt-3">
+                        <h5 className="font-medium text-gray-700 text-sm">Tamaño y Posición</h5>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Ancho: {element.width || 100}px
+                          </label>
+                          <input
+                            type="range"
+                            min="20"
+                            max="800"
+                            value={element.width || 100}
+                            onChange={(e) => {
+                              const newWidth = Number(e.target.value);
+                              if (lockAspectRatio && element.width && element.height) {
+                                const ratio = element.height / element.width;
+                                updateElement(element.id, { width: newWidth, height: newWidth * ratio });
+                              } else {
+                                updateElement(element.id, { width: newWidth });
+                              }
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Alto: {element.height || 100}px
+                          </label>
+                          <input
+                            type="range"
+                            min="20"
+                            max="600"
+                            value={element.height || 100}
+                            onChange={(e) => {
+                              const newHeight = Number(e.target.value);
+                              if (lockAspectRatio && element.width && element.height) {
+                                const ratio = element.width / element.height;
+                                updateElement(element.id, { height: newHeight, width: newHeight * ratio });
+                              } else {
+                                updateElement(element.id, { height: newHeight });
+                              }
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {(element.type === 'line' || element.type === 'arrow') && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Grosor: {element.strokeWidth || 2}px
+                            </label>
+                            <input
+                              type="range"
+                              min="1"
+                              max="10"
+                              value={element.strokeWidth || 2}
+                              onChange={(e) => updateElement(element.id, { strokeWidth: Number(e.target.value) })}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+
+                        {element.type === 'sticker' && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Emoji/Sticker</label>
+                            <input
+                              type="text"
+                              value={element.stickerType || '😊'}
+                              onChange={(e) => updateElement(element.id, { stickerType: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-2xl text-center"
+                              maxLength={2}
+                            />
+                          </div>
+                        )}
+
+                        {(element.type === 'line' || element.type === 'arrow' || element.type === 'shape') && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                            <input
+                              type="color"
+                              value={element.color || '#000000'}
+                              onChange={(e) => updateElement(element.id, { color: e.target.value })}
+                              className="w-full h-10 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                        )}
+                      </div>
                       {element.type === 'text' && (
                         <>
                           <div>
@@ -1250,6 +1316,99 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'panel' && (
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-800 mb-3">Configuración del Panel</h4>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ancho del Panel: {panelWidth}px
+                  </label>
+                  <input
+                    type="range"
+                    min="800"
+                    max="3200"
+                    step="100"
+                    value={panelWidth}
+                    onChange={(e) => {
+                      const updatedPanel = { ...localPanel, panelWidth: Number(e.target.value) };
+                      addToHistory(updatedPanel);
+                    }}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Alto del Panel: {panelHeight}px
+                  </label>
+                  <input
+                    type="range"
+                    min="600"
+                    max="2400"
+                    step="100"
+                    value={panelHeight}
+                    onChange={(e) => {
+                      const updatedPanel = { ...localPanel, panelHeight: Number(e.target.value) };
+                      addToHistory(updatedPanel);
+                    }}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Color de Fondo</label>
+                  <input
+                    type="color"
+                    value={localPanel.backgroundColor || '#ffffff'}
+                    onChange={(e) => {
+                      const updatedPanel = { ...localPanel, backgroundColor: e.target.value };
+                      addToHistory(updatedPanel);
+                    }}
+                    className="w-full h-10 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Imagen de Fondo</label>
+                  <button
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const url = event.target?.result as string;
+                            const updatedPanel = { ...localPanel, backgroundImage: url };
+                            addToHistory(updatedPanel);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Subir Imagen de Fondo
+                  </button>
+                  {localPanel.backgroundImage && (
+                    <button
+                      onClick={() => {
+                        const updatedPanel = { ...localPanel, backgroundImage: undefined };
+                        addToHistory(updatedPanel);
+                      }}
+                      className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                    >
+                      Eliminar Fondo
+                    </button>
+                  )}
                 </div>
               </div>
             )}

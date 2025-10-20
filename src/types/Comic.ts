@@ -13,6 +13,11 @@ export interface Panel {
   animations?: Animation[];
   audio?: AudioConfig | null;
   transitions?: Transition[];
+  panelWidth?: number;
+  panelHeight?: number;
+  backgroundImage?: string;
+  backgroundColor?: string;
+  filters?: MediaFilter[];
 }
 
 export interface ComicElement {
