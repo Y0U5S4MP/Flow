@@ -5,6 +5,7 @@ export interface Comic {
   panels: Panel[];
   createdAt: string;
   updatedAt?: string;
+  backgroundMusic?: AudioConfig;
 }
 
 export interface Panel {
@@ -57,6 +58,8 @@ export interface ComicElement {
   lineStart?: Point;
   lineEnd?: Point;
   stickerType?: string;
+  soundEffect?: string;
+  appearanceDelay?: number;
 }
 
 export interface MediaFilter {

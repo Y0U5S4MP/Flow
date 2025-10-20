@@ -12,10 +12,66 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
+  const [backgroundMusicAudio, setBackgroundMusicAudio] = useState<HTMLAudioElement | null>(null);
+  const [transitionClass, setTransitionClass] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen && comic.backgroundMusic?.backgroundMusic) {
+      const audio = new Audio(comic.backgroundMusic.backgroundMusic.url);
+      audio.loop = comic.backgroundMusic.backgroundMusic.loop;
+      audio.volume = isMuted ? 0 : (comic.backgroundMusic.backgroundMusic.volume || 0.5);
+      setBackgroundMusicAudio(audio);
+      return () => {
+        audio.pause();
+        audio.remove();
+      };
+    }
+  }, [isOpen, comic.backgroundMusic]);
+
+  useEffect(() => {
+    if (backgroundMusicAudio) {
+      if (isPlaying && !isMuted) {
+        backgroundMusicAudio.play().catch(e => console.log('Audio play failed:', e));
+      } else {
+        backgroundMusicAudio.pause();
+      }
+    }
+  }, [isPlaying, backgroundMusicAudio]);
+
+  useEffect(() => {
+    if (backgroundMusicAudio) {
+      backgroundMusicAudio.volume = isMuted ? 0 : (comic.backgroundMusic?.backgroundMusic?.volume || 0.5);
+    }
+  }, [isMuted, backgroundMusicAudio]);
+
+  useEffect(() => {
+    setVisibleElements(new Set());
+
+    if (!comic.panels?.[currentPanelIndex]) return;
+
+    const currentPanel = comic.panels[currentPanelIndex];
+    const sortedElements = [...currentPanel.elements].sort((a, b) =>
+      (a.appearanceOrder || 0) - (b.appearanceOrder || 0)
+    );
+
+    sortedElements.forEach((element) => {
+      const delay = element.appearanceDelay || 0;
+      setTimeout(() => {
+        setVisibleElements(prev => new Set([...prev, element.id]));
+
+        if (element.soundEffect && !isMuted) {
+          const audio = new Audio(element.soundEffect);
+          audio.volume = 0.7;
+          audio.play().catch(e => console.log('Sound effect play failed:', e));
+        }
+      }, delay);
+    });
+  }, [currentPanelIndex, comic.panels, isMuted]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isPlaying && comic.panels && comic.panels.length > 0) {
       interval = setInterval(() => {
         setCurrentPanelIndex(prev => {
@@ -25,7 +81,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
           }
           return prev + 1;
         });
-      }, 3000); // 3 segundos por panel
+      }, 3000);
     }
 
     return () => clearInterval(interval);
@@ -46,10 +102,22 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   };
 
   const renderElement = (element: ComicElement) => {
-    // Scale elements to full screen presentation (16:9 aspect ratio)
-    const scaleX = 1600 / 800;
-    const scaleY = 900 / 600;
-    
+    if (!visibleElements.has(element.id)) return null;
+
+    const panelWidth = currentPanel.panelWidth || 1600;
+    const panelHeight = currentPanel.panelHeight || 900;
+    const scaleX = 1600 / panelWidth;
+    const scaleY = 900 / panelHeight;
+
+    const rotation = (element as any).rotation || 0;
+    const flipH = (element as any).flipHorizontal || false;
+    const flipV = (element as any).flipVertical || false;
+
+    const transforms = [];
+    if (rotation !== 0) transforms.push(`rotate(${rotation}deg)`);
+    if (flipH) transforms.push('scaleX(-1)');
+    if (flipV) transforms.push('scaleY(-1)');
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${element.x * scaleX}px`,
@@ -62,6 +130,8 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       fontStyle: element.fontStyle || 'normal',
       textAlign: (element.textAlign as any) || 'left',
       opacity: element.opacity || 1,
+      transform: transforms.length > 0 ? transforms.join(' ') : undefined,
+      transformOrigin: 'center',
       filter: element.filters?.map(f => {
         switch (f.type) {
           case 'brightness': return `brightness(${f.value})`;
@@ -129,6 +199,68 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
               borderRadius: element.shape === 'circle' ? '50%' : '0'
             }}
           />
+        );
+
+      case 'line':
+        return (
+          <div
+            key={element.id}
+            style={{
+              ...style,
+              height: `${(element.strokeWidth || 2) * scaleY}px`,
+              backgroundColor: element.color
+            }}
+          />
+        );
+
+      case 'arrow':
+        return (
+          <svg
+            key={element.id}
+            style={{
+              ...style,
+              height: `${20 * scaleY}px`
+            }}
+            viewBox="0 0 100 20"
+          >
+            <defs>
+              <marker
+                id={`arrowhead-preview-${element.id}`}
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3, 0 6" fill={element.color || '#000000'} />
+              </marker>
+            </defs>
+            <line
+              x1="0"
+              y1="10"
+              x2="95"
+              y2="10"
+              stroke={element.color || '#000000'}
+              strokeWidth={element.strokeWidth || 2}
+              markerEnd={`url(#arrowhead-preview-${element.id})`}
+            />
+          </svg>
+        );
+
+      case 'sticker':
+        return (
+          <div
+            key={element.id}
+            style={{
+              ...style,
+              fontSize: `${(element.width || 80) * scaleX * 0.8}px`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {element.stickerType || '😊'}
+          </div>
         );
 
       case 'brush':
@@ -207,18 +339,23 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       {/* Main Viewer */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="relative">
-          <div 
-            className="bg-white shadow-2xl overflow-hidden"
-            style={{ 
-              width: '100vw', 
+          <div
+            className="shadow-2xl overflow-hidden"
+            style={{
+              width: '100vw',
               height: '100vh',
               maxWidth: '1600px',
-              maxHeight: '900px'
+              maxHeight: '900px',
+              backgroundColor: currentPanel.backgroundColor || '#ffffff',
+              backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
             }}
           >
             <div className="relative w-full h-full">
               {currentPanel.elements
                 .filter(el => el.visible !== false)
+                .sort((a, b) => (a.appearanceOrder || 0) - (b.appearanceOrder || 0))
                 .map(renderElement)}
             </div>
           </div>

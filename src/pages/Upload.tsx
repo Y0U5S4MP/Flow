@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Wand2 } from 'lucide-react';
+import { Wand2, Music, ArrowRightLeft, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Comic, Panel, ComicElement } from '../types/Comic';
+import { Comic, Panel, ComicElement, Transition } from '../types/Comic';
 import { saveComic } from '../utils/storage';
 import { v4 as uuidv4 } from 'uuid';
 import MultiPanelUpload from '../components/MultiPanelUpload';
@@ -151,12 +151,135 @@ const Upload: React.FC = () => {
             </div>
 
             {/* Panel Preview */}
-            <DraggablePanelPreview 
+            <DraggablePanelPreview
               panels={comic.panels || []}
               onPanelsReorder={handlePanelsReorder}
               onPanelEdit={handlePanelEdit}
               onPanelDelete={handlePanelDelete}
             />
+
+            {/* Background Music */}
+            {(comic.panels || []).length > 0 && (
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-purple-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Music className="w-6 h-6 text-purple-600" />
+                  <h3 className="text-xl font-bold text-gray-800">Música de Fondo</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Agrega música de fondo que se reproducirá durante toda la historieta
+                </p>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'audio/*';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const url = event.target?.result as string;
+                          setComic(prev => ({
+                            ...prev,
+                            backgroundMusic: {
+                              backgroundMusic: {
+                                url,
+                                volume: 0.5,
+                                loop: true
+                              }
+                            }
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    };
+                    input.click();
+                  }}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-semibold"
+                >
+                  {comic.backgroundMusic ? '🎵 Cambiar Música' : '🎵 Agregar Música'}
+                </button>
+                {comic.backgroundMusic && (
+                  <button
+                    onClick={() => setComic(prev => ({ ...prev, backgroundMusic: undefined }))}
+                    className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Eliminar Música
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Panel Transitions */}
+            {(comic.panels || []).length > 1 && (
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-blue-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <ArrowRightLeft className="w-6 h-6 text-blue-600" />
+                  <h3 className="text-xl font-bold text-gray-800">Transiciones entre Paneles</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configura transiciones animadas entre cada panel
+                </p>
+                <div className="space-y-3">
+                  {(comic.panels || []).map((panel, index) => {
+                    if (index === (comic.panels || []).length - 1) return null;
+                    const transition = panel.transitions?.[0];
+
+                    return (
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            Panel {index + 1} → Panel {index + 2}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={transition?.type || 'fade'}
+                            onChange={(e) => {
+                              const updatedPanels = [...(comic.panels || [])];
+                              updatedPanels[index] = {
+                                ...updatedPanels[index],
+                                transitions: [{
+                                  type: e.target.value as any,
+                                  duration: transition?.duration || 500
+                                }]
+                              };
+                              setComic(prev => ({ ...prev, panels: updatedPanels }));
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          >
+                            <option value="fade">Fade</option>
+                            <option value="slide">Slide</option>
+                            <option value="zoom">Zoom</option>
+                            <option value="flip">Flip</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={transition?.duration || 500}
+                            onChange={(e) => {
+                              const updatedPanels = [...(comic.panels || [])];
+                              updatedPanels[index] = {
+                                ...updatedPanels[index],
+                                transitions: [{
+                                  type: transition?.type || 'fade',
+                                  duration: Number(e.target.value)
+                                }]
+                              };
+                              setComic(prev => ({ ...prev, panels: updatedPanels }));
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            placeholder="Duración (ms)"
+                            min="100"
+                            max="2000"
+                            step="100"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Publish Button */}
             <button

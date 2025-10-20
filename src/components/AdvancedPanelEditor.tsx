@@ -1122,6 +1122,61 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                         </>
                       )}
 
+                      <div className="space-y-3 border-t pt-3">
+                        <h5 className="font-medium text-gray-700 text-sm">Timing y Sonido</h5>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Retraso de Aparición: {element.appearanceDelay || 0}ms
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="5000"
+                            step="100"
+                            value={element.appearanceDelay || 0}
+                            onChange={(e) => updateElement(element.id, { appearanceDelay: Number(e.target.value) })}
+                            className="w-full"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Efecto de Sonido
+                          </label>
+                          <button
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'audio/*';
+                              input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const url = event.target?.result as string;
+                                    updateElement(element.id, { soundEffect: url });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              };
+                              input.click();
+                            }}
+                            className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
+                          >
+                            {element.soundEffect ? 'Cambiar Sonido' : 'Agregar Sonido'}
+                          </button>
+                          {element.soundEffect && (
+                            <button
+                              onClick={() => updateElement(element.id, { soundEffect: undefined })}
+                              className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-xs"
+                            >
+                              Eliminar Sonido
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
                       {element.type === 'shape' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
