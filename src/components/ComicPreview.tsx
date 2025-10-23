@@ -126,7 +126,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
           default: return '';
         }
       }).join(' ') || 'none',
-      animation: isPlaying && currentPanel.animations?.find(a => a.elementId === element.id) 
+      animation: isAutoPlay && currentPanel.animations?.find(a => a.elementId === element.id)
         ? `${getAnimationName(currentPanel.animations.find(a => a.elementId === element.id)!)} ${currentPanel.animations.find(a => a.elementId === element.id)!.duration}ms ${currentPanel.animations.find(a => a.elementId === element.id)!.easing || 'ease'} ${currentPanel.animations.find(a => a.elementId === element.id)!.delay}ms`
         : 'none'
     };
