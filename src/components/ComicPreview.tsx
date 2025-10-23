@@ -321,14 +321,12 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       </div>
 
       {/* Main Viewer */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
         <div
-          className="relative shadow-2xl overflow-hidden"
+          className="relative shadow-2xl"
           style={{
             width: `${currentPanel.panelWidth || 1600}px`,
             height: `${currentPanel.panelHeight || 900}px`,
-            maxWidth: '95vw',
-            maxHeight: '70vh',
             backgroundColor: currentPanel.backgroundColor || '#ffffff',
             backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
             backgroundSize: 'cover',
