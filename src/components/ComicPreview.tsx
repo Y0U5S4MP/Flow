@@ -343,15 +343,16 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       </div>
 
       {/* Main Viewer */}
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex items-center justify-center p-4 bg-gray-900">
         <div
-          className="relative shadow-2xl"
+          className="relative shadow-2xl max-w-full max-h-full"
           style={{
             width: `${currentPanel.panelWidth || 1600}px`,
             height: `${currentPanel.panelHeight || 900}px`,
-            backgroundColor: currentPanel.backgroundColor || '#ffffff',
+            backgroundColor: currentPanel.backgroundColor || 'transparent',
             backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
-            backgroundSize: 'cover',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
