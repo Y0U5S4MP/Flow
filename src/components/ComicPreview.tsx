@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Comic, Panel, ComicElement } from '../types/Comic';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ComicPreviewProps {
   comic: Partial<Comic>;
@@ -317,43 +317,11 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-black/80 backdrop-blur-sm border-b border-white/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onClose}
-              className="text-white hover:text-purple-300 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <h1 className="text-xl font-bold text-white">
-              {comic.title || 'Vista Previa de Historieta'}
-            </h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <span className="text-white/60 text-xs hidden md:block">
-              ← → Flechas para navegar | Espacio para auto-play
-            </span>
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-white hover:text-purple-300 transition-colors"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </button>
-            <div className="text-white text-sm">
-              Panel {currentPanelIndex + 1} de {comic.panels.length}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Viewer */}
-      <div className="flex-1 flex items-center justify-center p-4 bg-gray-900">
+    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+      {/* Main Viewer - Full Screen */}
+      <div className="absolute inset-0 flex items-center justify-center">
         <div
-          className="relative shadow-2xl max-w-full max-h-full"
+          className="relative max-w-full max-h-full"
           style={{
             width: `${currentPanel.panelWidth || 1600}px`,
             height: `${currentPanel.panelHeight || 900}px`,
@@ -376,46 +344,112 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="bg-black/80 backdrop-blur-sm border-t border-white/20 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center space-x-6 mb-4">
+      {/* Top Bar - Floating */}
+      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-6 z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
             <button
-              onClick={prevPanel}
-              disabled={currentPanelIndex === 0}
-              className="p-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-white transition-all duration-200"
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+              title="Cerrar"
             >
-              <SkipBack className="w-6 h-6" />
+              <X className="w-6 h-6" />
             </button>
-            
-            <button
-              onClick={() => setIsAutoPlay(!isAutoPlay)}
-              className="p-4 bg-purple-600 hover:bg-purple-700 rounded-full text-white transition-all duration-200 transform hover:scale-105"
-            >
-              {isAutoPlay ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
-            </button>
-            
-            <button
-              onClick={nextPanel}
-              disabled={currentPanelIndex === comic.panels.length - 1}
-              className="p-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-white transition-all duration-200"
-            >
-              <SkipForward className="w-6 h-6" />
-            </button>
+            <h1 className="text-xl font-bold text-white hidden sm:block">
+              {comic.title || 'Vista Previa'}
+            </h1>
           </div>
-          
-          <div className="flex space-x-2 justify-center">
+
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+              title={isMuted ? "Activar sonido" : "Silenciar"}
+            >
+              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+            <div className="px-3 py-1 bg-white/10 rounded-full text-white text-sm font-medium">
+              {currentPanelIndex + 1} / {comic.panels.length}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Side Navigation - Left */}
+      <button
+        onClick={prevPanel}
+        disabled={currentPanelIndex === 0}
+        className="absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-black/50 hover:bg-black/70 disabled:opacity-30 disabled:cursor-not-allowed rounded-full text-white transition-all duration-200 backdrop-blur-sm z-10"
+        title="Panel anterior"
+      >
+        <ChevronLeft className="w-8 h-8" />
+      </button>
+
+      {/* Side Navigation - Right */}
+      <button
+        onClick={nextPanel}
+        disabled={currentPanelIndex === comic.panels.length - 1}
+        className="absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-black/50 hover:bg-black/70 disabled:opacity-30 disabled:cursor-not-allowed rounded-full text-white transition-all duration-200 backdrop-blur-sm z-10"
+        title="Panel siguiente"
+      >
+        <ChevronRight className="w-8 h-8" />
+      </button>
+
+      {/* Bottom Controls - Floating */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8 z-10">
+        <div className="max-w-4xl mx-auto space-y-4">
+          {/* Progress Dots */}
+          <div className="flex space-x-2 justify-center mb-4">
             {comic.panels.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentPanelIndex(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                className={`transition-all duration-300 rounded-full ${
                   index === currentPanelIndex
-                    ? 'bg-white'
-                    : 'bg-white/40 hover:bg-white/60'
+                    ? 'w-8 h-3 bg-white'
+                    : 'w-3 h-3 bg-white/40 hover:bg-white/60'
                 }`}
+                title={`Ir al panel ${index + 1}`}
               />
             ))}
+          </div>
+
+          {/* Main Controls */}
+          <div className="flex items-center justify-center space-x-6">
+            <button
+              onClick={prevPanel}
+              disabled={currentPanelIndex === 0}
+              className="p-3 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white transition-all duration-200 backdrop-blur-sm"
+              title="Anterior"
+            >
+              <SkipBack className="w-6 h-6" />
+            </button>
+
+            <button
+              onClick={() => setIsAutoPlay(!isAutoPlay)}
+              className={`p-5 rounded-full text-white transition-all duration-200 transform hover:scale-105 backdrop-blur-sm ${
+                isAutoPlay
+                  ? 'bg-orange-500 hover:bg-orange-600'
+                  : 'bg-green-500 hover:bg-green-600'
+              }`}
+              title={isAutoPlay ? "Pausar reproducción automática" : "Iniciar reproducción automática"}
+            >
+              {isAutoPlay ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+            </button>
+
+            <button
+              onClick={nextPanel}
+              disabled={currentPanelIndex === comic.panels.length - 1}
+              className="p-3 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white transition-all duration-200 backdrop-blur-sm"
+              title="Siguiente"
+            >
+              <SkipForward className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Keyboard Hints */}
+          <div className="text-center text-white/50 text-xs hidden md:block">
+            Usa las flechas ← → para navegar • Espacio para auto-play
           </div>
         </div>
       </div>
