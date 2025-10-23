@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
-import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock, Minus, ArrowRight, Smile, Settings } from 'lucide-react';
+import { X, Undo, Redo, Copy, Layers, Grid2x2 as Grid, ZoomIn, ZoomOut, Type, Square, Circle, Trash2, Eye, EyeOff, Download, Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock, Minus, ArrowRight, Smile, Settings, Crop, Save } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import TypewriterText from './TypewriterText';
 
@@ -400,6 +400,132 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       default:
         return '';
     }
+  };
+
+  const calculateContentBounds = () => {
+    if (localPanel.elements.length === 0 && !localPanel.backgroundImage) {
+      return null;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    if (localPanel.backgroundImage) {
+      minX = 0;
+      minY = 0;
+      maxX = panelWidth;
+      maxY = panelHeight;
+    }
+
+    localPanel.elements.forEach(el => {
+      const x = el.x || 0;
+      const y = el.y || 0;
+      const width = el.width || 100;
+      const height = el.height || 100;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    });
+
+    const padding = 20;
+    return {
+      minX: Math.max(0, minX - padding),
+      minY: Math.max(0, minY - padding),
+      width: Math.ceil(maxX - minX + padding * 2),
+      height: Math.ceil(maxY - minY + padding * 2)
+    };
+  };
+
+  const exportPanelAsImage = async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = panelWidth;
+    canvas.height = panelHeight;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    if (localPanel.backgroundColor) {
+      ctx.fillStyle = localPanel.backgroundColor;
+      ctx.fillRect(0, 0, panelWidth, panelHeight);
+    }
+
+    if (localPanel.backgroundImage) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, panelWidth, panelHeight);
+          resolve(null);
+        };
+        img.onerror = reject;
+        img.src = localPanel.backgroundImage!;
+      });
+    }
+
+    const sortedElements = [...localPanel.elements].sort((a, b) =>
+      (a.appearanceOrder || 0) - (b.appearanceOrder || 0)
+    );
+
+    for (const element of sortedElements) {
+      if (element.visible === false) continue;
+
+      const x = element.x || 0;
+      const y = element.y || 0;
+
+      ctx.save();
+
+      if (element.type === 'text') {
+        ctx.font = `${element.fontWeight || 'normal'} ${element.fontStyle || 'normal'} ${element.fontSize || 16}px Arial`;
+        ctx.fillStyle = element.color || '#000000';
+        ctx.textAlign = (element.textAlign as any) || 'left';
+        ctx.fillText(element.content || '', x, y + (element.fontSize || 16));
+      } else if (element.type === 'image' && element.src) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        await new Promise((resolve) => {
+          img.onload = () => {
+            ctx.drawImage(img, x, y, element.width || 100, element.height || 100);
+            resolve(null);
+          };
+          img.onerror = resolve;
+          img.src = element.src!;
+        });
+      } else if (element.type === 'shape') {
+        ctx.fillStyle = element.color || '#000000';
+
+        if (element.shape === 'rectangle') {
+          ctx.fillRect(x, y, element.width || 100, element.height || 100);
+        } else if (element.shape === 'circle') {
+          const radius = (element.width || 100) / 2;
+          ctx.beginPath();
+          ctx.arc(x + radius, y + radius, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    const isGif = localPanel.backgroundImage?.startsWith('data:image/gif');
+    const mimeType = isGif ? 'image/gif' : 'image/png';
+    const extension = isGif ? 'gif' : 'png';
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `panel-${Date.now()}.${extension}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }, mimeType);
   };
 
   const renderElement = (element: ComicElement) => {
@@ -1383,40 +1509,70 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-800 mb-3">Configuración del Panel</h4>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ancho del Panel: {panelWidth}px
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Dimensiones del Canvas
                   </label>
-                  <input
-                    type="range"
-                    min="800"
-                    max="3200"
-                    step="100"
-                    value={panelWidth}
-                    onChange={(e) => {
-                      const updatedPanel = { ...localPanel, panelWidth: Number(e.target.value) };
-                      addToHistory(updatedPanel);
-                    }}
-                    className="w-full"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Alto del Panel: {panelHeight}px
-                  </label>
-                  <input
-                    type="range"
-                    min="600"
-                    max="2400"
-                    step="100"
-                    value={panelHeight}
-                    onChange={(e) => {
-                      const updatedPanel = { ...localPanel, panelHeight: Number(e.target.value) };
-                      addToHistory(updatedPanel);
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Ancho (px)</label>
+                      <input
+                        type="number"
+                        min="400"
+                        max="4000"
+                        value={panelWidth}
+                        onChange={(e) => {
+                          const value = Math.max(400, Math.min(4000, Number(e.target.value)));
+                          const updatedPanel = { ...localPanel, panelWidth: value };
+                          addToHistory(updatedPanel);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Alto (px)</label>
+                      <input
+                        type="number"
+                        min="400"
+                        max="4000"
+                        value={panelHeight}
+                        onChange={(e) => {
+                          const value = Math.max(400, Math.min(4000, Number(e.target.value)));
+                          const updatedPanel = { ...localPanel, panelHeight: value };
+                          addToHistory(updatedPanel);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const bounds = calculateContentBounds();
+                      if (bounds) {
+                        const updatedPanel = {
+                          ...localPanel,
+                          panelWidth: bounds.width,
+                          panelHeight: bounds.height,
+                          elements: localPanel.elements.map(el => ({
+                            ...el,
+                            x: (el.x || 0) - bounds.minX,
+                            y: (el.y || 0) - bounds.minY
+                          }))
+                        };
+                        addToHistory(updatedPanel);
+                      }
                     }}
-                    className="w-full"
-                  />
+                    className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Crop className="w-4 h-4" />
+                    <span>Ajustar al Contenido</span>
+                  </button>
+
+                  <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                    💡 El canvas se ajustará automáticamente al contenido eliminando espacios vacíos
+                  </div>
                 </div>
 
                 <div>
@@ -1468,6 +1624,20 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                       Eliminar Fondo
                     </button>
                   )}
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Exportar Panel</label>
+                  <button
+                    onClick={exportPanelAsImage}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 font-medium"
+                  >
+                    <Save className="w-5 h-5" />
+                    <span>Guardar como Imagen</span>
+                  </button>
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    Se guardará como PNG o GIF según el contenido
+                  </div>
                 </div>
               </div>
             )}
