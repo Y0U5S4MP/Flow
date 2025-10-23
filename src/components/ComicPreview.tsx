@@ -89,8 +89,6 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   const renderElement = (element: ComicElement) => {
     const panelWidth = currentPanel.panelWidth || 1600;
     const panelHeight = currentPanel.panelHeight || 900;
-    const scaleX = 1600 / panelWidth;
-    const scaleY = 900 / panelHeight;
 
     const rotation = (element as any).rotation || 0;
     const flipH = (element as any).flipHorizontal || false;
@@ -103,11 +101,11 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
 
     const style: React.CSSProperties = {
       position: 'absolute',
-      left: `${element.x * scaleX}px`,
-      top: `${element.y * scaleY}px`,
-      width: element.width ? `${element.width * scaleX}px` : 'auto',
-      height: element.height ? `${element.height * scaleY}px` : 'auto',
-      fontSize: element.fontSize ? `${element.fontSize * scaleX}px` : `${16 * scaleX}px`,
+      left: `${element.x}px`,
+      top: `${element.y}px`,
+      width: element.width ? `${element.width}px` : 'auto',
+      height: element.height ? `${element.height}px` : 'auto',
+      fontSize: element.fontSize ? `${element.fontSize}px` : '16px',
       color: element.color || '#000000',
       fontWeight: element.fontWeight || 'normal',
       fontStyle: element.fontStyle || 'normal',
@@ -324,26 +322,24 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
 
       {/* Main Viewer */}
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="relative">
-          <div
-            className="shadow-2xl overflow-hidden"
-            style={{
-              width: '100vw',
-              height: '100vh',
-              maxWidth: '1600px',
-              maxHeight: '900px',
-              backgroundColor: currentPanel.backgroundColor || '#ffffff',
-              backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          >
-            <div className="relative w-full h-full">
-              {currentPanel.elements
-                .filter(el => el.visible !== false)
-                .sort((a, b) => (a.appearanceOrder || 0) - (b.appearanceOrder || 0))
-                .map(renderElement)}
-            </div>
+        <div
+          className="relative shadow-2xl overflow-hidden"
+          style={{
+            width: `${currentPanel.panelWidth || 1600}px`,
+            height: `${currentPanel.panelHeight || 900}px`,
+            maxWidth: '95vw',
+            maxHeight: '70vh',
+            backgroundColor: currentPanel.backgroundColor || '#ffffff',
+            backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        >
+          <div className="relative w-full h-full">
+            {currentPanel.elements
+              .filter(el => el.visible !== false)
+              .sort((a, b) => (a.appearanceOrder || 0) - (b.appearanceOrder || 0))
+              .map(renderElement)}
           </div>
         </div>
       </div>
