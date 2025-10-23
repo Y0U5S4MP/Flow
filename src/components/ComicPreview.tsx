@@ -13,6 +13,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   const [isAutoPlay, setIsAutoPlay] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [backgroundMusicAudio, setBackgroundMusicAudio] = useState<HTMLAudioElement | null>(null);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     if (isOpen && comic.backgroundMusic?.backgroundMusic) {
@@ -81,6 +82,27 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
 
     return () => clearInterval(interval);
   }, [isAutoPlay, comic.panels]);
+
+  useEffect(() => {
+    const calculateScale = () => {
+      if (!isOpen || !comic.panels) return;
+      const currentPanel = comic.panels[currentPanelIndex];
+      const panelWidth = currentPanel.panelWidth || 1600;
+      const panelHeight = currentPanel.panelHeight || 900;
+
+      const availableWidth = window.innerWidth - 100;
+      const availableHeight = window.innerHeight - 300;
+
+      const scaleX = availableWidth / panelWidth;
+      const scaleY = availableHeight / panelHeight;
+
+      setScale(Math.min(scaleX, scaleY, 1));
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [isOpen, currentPanelIndex, comic.panels]);
 
   if (!isOpen || !comic.panels || comic.panels.length === 0) return null;
 
@@ -321,7 +343,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
       </div>
 
       {/* Main Viewer */}
-      <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+      <div className="flex-1 flex items-center justify-center p-4">
         <div
           className="relative shadow-2xl"
           style={{
@@ -330,7 +352,10 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
             backgroundColor: currentPanel.backgroundColor || '#ffffff',
             backgroundImage: currentPanel.backgroundImage ? `url(${currentPanel.backgroundImage})` : undefined,
             backgroundSize: 'cover',
-            backgroundPosition: 'center'
+            backgroundPosition: 'center',
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            transition: 'transform 0.3s ease-in-out'
           }}
         >
           <div className="relative w-full h-full">
