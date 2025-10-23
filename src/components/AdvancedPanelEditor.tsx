@@ -666,7 +666,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 transformOrigin: 'top left',
                 backgroundColor: localPanel.backgroundColor || '#ffffff',
                 backgroundImage: localPanel.backgroundImage ? `url(${localPanel.backgroundImage})` : undefined,
-                backgroundSize: 'cover',
+                backgroundSize: 'contain',
+                backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'center'
               }}
               onMouseMove={handleMouseMove}

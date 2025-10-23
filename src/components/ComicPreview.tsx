@@ -84,9 +84,17 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
   }, [isAutoPlay, comic.panels]);
 
   useEffect(() => {
+    if (isOpen) {
+      setCurrentPanelIndex(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     const calculateScale = () => {
-      if (!isOpen || !comic.panels) return;
+      if (!isOpen || !comic.panels || comic.panels.length === 0) return;
       const currentPanel = comic.panels[currentPanelIndex];
+      if (!currentPanel) return;
+
       const panelWidth = currentPanel.panelWidth || 1600;
       const panelHeight = currentPanel.panelHeight || 900;
 
@@ -102,7 +110,7 @@ const ComicPreview: React.FC<ComicPreviewProps> = ({ comic, isOpen, onClose }) =
     calculateScale();
     window.addEventListener('resize', calculateScale);
     return () => window.removeEventListener('resize', calculateScale);
-  }, [isOpen, currentPanelIndex, comic.panels]);
+  }, [isOpen, currentPanelIndex, comic.panels, comic]);
 
   if (!isOpen || !comic.panels || comic.panels.length === 0) return null;
 
