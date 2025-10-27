@@ -5,6 +5,7 @@ import { Comic, Panel } from '../types/Comic';
 import { saveComic } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
 import AdvancedPanelEditor from '../components/AdvancedPanelEditor';
+import ComicPlayer from '../components/ComicPlayer';
 
 const Upload: React.FC = () => {
   const { user } = useAuth();
@@ -41,6 +42,7 @@ const Upload: React.FC = () => {
           const newPanel: Panel = {
             id: uuidv4(),
             imageUrl: e.target?.result as string,
+            backgroundImage: e.target?.result as string,
             panelWidth: img.width,
             panelHeight: img.height,
             elements: [],
@@ -281,109 +283,7 @@ const Upload: React.FC = () => {
               Vista Previa en Tiempo Real
             </h2>
             <div className="bg-gray-900 rounded-2xl p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {panels.map((panel, index) => (
-                  <div key={panel.id} className="bg-gray-800 rounded-lg p-4">
-                    <div className="text-white text-sm font-semibold mb-2">
-                      Panel {index + 1}
-                    </div>
-                    <div
-                      className="relative bg-white rounded-lg overflow-hidden"
-                      style={{
-                        aspectRatio: `${panel.panelWidth} / ${panel.panelHeight}`,
-                        maxHeight: '400px'
-                      }}
-                    >
-                      <img
-                        src={panel.imageUrl}
-                        alt={`Panel ${index + 1}`}
-                        className="absolute inset-0 w-full h-full object-contain"
-                        style={{ backgroundColor: panel.backgroundColor || '#ffffff' }}
-                      />
-                      {panel.elements && panel.elements.length > 0 && panel.elements.map((element) => {
-                        if (element.type === 'text') {
-                          return (
-                            <div
-                              key={element.id}
-                              style={{
-                                position: 'absolute',
-                                left: `${(element.x / panel.panelWidth) * 100}%`,
-                                top: `${(element.y / panel.panelHeight) * 100}%`,
-                                fontSize: `${element.fontSize}px`,
-                                color: element.color,
-                                fontWeight: element.fontWeight,
-                                whiteSpace: 'pre-wrap',
-                                pointerEvents: 'none'
-                              }}
-                            >
-                              {element.content}
-                            </div>
-                          );
-                        }
-                        if (element.type === 'image' && element.src) {
-                          return (
-                            <img
-                              key={element.id}
-                              src={element.src}
-                              alt="Element"
-                              style={{
-                                position: 'absolute',
-                                left: `${(element.x / panel.panelWidth) * 100}%`,
-                                top: `${(element.y / panel.panelHeight) * 100}%`,
-                                width: `${(element.width! / panel.panelWidth) * 100}%`,
-                                height: `${(element.height! / panel.panelHeight) * 100}%`,
-                                objectFit: 'contain',
-                                pointerEvents: 'none'
-                              }}
-                            />
-                          );
-                        }
-                        if (element.type === 'shape') {
-                          return (
-                            <div
-                              key={element.id}
-                              style={{
-                                position: 'absolute',
-                                left: `${(element.x / panel.panelWidth) * 100}%`,
-                                top: `${(element.y / panel.panelHeight) * 100}%`,
-                                width: `${(element.width! / panel.panelWidth) * 100}%`,
-                                height: `${(element.height! / panel.panelHeight) * 100}%`,
-                                backgroundColor: element.color,
-                                borderRadius: element.shape === 'circle' ? '50%' : '0',
-                                pointerEvents: 'none'
-                              }}
-                            />
-                          );
-                        }
-                        if (element.type === 'sticker') {
-                          return (
-                            <div
-                              key={element.id}
-                              style={{
-                                position: 'absolute',
-                                left: `${(element.x / panel.panelWidth) * 100}%`,
-                                top: `${(element.y / panel.panelHeight) * 100}%`,
-                                fontSize: `${(element.width! / panel.panelWidth) * 100}%`,
-                                lineHeight: '1',
-                                pointerEvents: 'none'
-                              }}
-                            >
-                              {element.stickerType}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                    {(panel.soundEffect || panel.backgroundMusic) && (
-                      <div className="mt-2 text-xs text-gray-400">
-                        {panel.soundEffect && <div>🔊 Efecto de sonido</div>}
-                        {panel.backgroundMusic && <div>🎵 Música de fondo</div>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <ComicPlayer panels={panels} />
             </div>
           </div>
         )}
