@@ -57,10 +57,10 @@ const Upload: React.FC = () => {
 
   const handlePanelUpdate = (updatedPanel: Panel) => {
     if (!editingPanel) return;
-    
+
     const updatedPanels = [...(comic.panels || [])];
     updatedPanels[editingPanel.index] = updatedPanel;
-    
+
     setComic(prev => ({
       ...prev,
       panels: updatedPanels
@@ -91,11 +91,10 @@ const Upload: React.FC = () => {
       };
 
       saveComic(newComic);
-      
+
       // Reset form
       setComic({ title: '', description: '', panels: [] });
-      setCurrentPanel({ id: uuidv4(), elements: [] });
-      
+
       alert('¡Historieta publicada exitosamente!');
     } catch (error) {
       alert('Error al publicar la historieta');

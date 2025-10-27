@@ -43,7 +43,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     setLocalPanel(panel);
     setHistory([panel]);
     setHistoryIndex(0);
-  }, [panel]);
+  }, [panel.id]);
 
   const addToHistory = (newPanel: Panel) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -51,7 +51,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
     setLocalPanel(newPanel);
-    onPanelUpdate(newPanel);
   };
 
   const undo = () => {
