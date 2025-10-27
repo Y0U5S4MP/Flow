@@ -1,7 +1,7 @@
 import React from 'react';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Palette, Upload, User, LogOut } from 'lucide-react';
+import { Home, BookOpen, Palette, Upload, User, LogOut, Code } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from './AuthModal';
 
@@ -13,6 +13,7 @@ const Navbar: React.FC = () => {
   const navItems = [
     { path: '/', icon: Home, label: 'Inicio' },
     { path: '/gallery', icon: BookOpen, label: 'Galería' },
+    { path: '/code', icon: Code, label: 'Code Editor' },
   ];
 
   // Add upload link only for creators
