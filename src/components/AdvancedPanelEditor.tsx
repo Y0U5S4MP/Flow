@@ -754,19 +754,39 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
               <Grid className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setZoom(Math.max(50, zoom - 10))}
+              onClick={() => setZoom(Math.max(25, zoom - 10))}
               className="p-2 hover:bg-gray-100 rounded-lg"
               title="Alejar"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
-            <span className="text-sm text-gray-600">{zoom}%</span>
+            <div className="flex items-center gap-2 px-2">
+              <input
+                type="range"
+                min="25"
+                max="200"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((zoom - 25) / 175) * 100}%, #e5e7eb ${((zoom - 25) / 175) * 100}%, #e5e7eb 100%)`
+                }}
+              />
+              <span className="text-sm text-gray-600 font-semibold min-w-[45px]">{zoom}%</span>
+            </div>
             <button
               onClick={() => setZoom(Math.min(200, zoom + 10))}
               className="p-2 hover:bg-gray-100 rounded-lg"
               title="Acercar"
             >
               <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setZoom(100)}
+              className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Restablecer zoom al 100%"
+            >
+              100%
             </button>
             <button
               onClick={() => {
@@ -781,14 +801,13 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden relative">
+          <div className="flex-1 bg-gray-100 rounded-lg overflow-auto relative p-8">
             <div
-              className="editor-canvas relative bg-white mx-auto"
+              className="editor-canvas relative bg-white shadow-xl"
               style={{
-                width: `${canvasDisplayWidth}px`,
-                height: `${canvasDisplayHeight}px`,
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top left',
+                width: `${canvasDisplayWidth * (zoom / 100)}px`,
+                height: `${canvasDisplayHeight * (zoom / 100)}px`,
+                margin: '0 auto',
                 backgroundColor: localPanel.backgroundColor || '#ffffff',
                 backgroundImage: localPanel.backgroundImage ? `url(${localPanel.backgroundImage})` : undefined,
                 backgroundSize: 'contain',
