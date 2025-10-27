@@ -70,13 +70,15 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
               aspectRatio: `${currentPanel.panelWidth} / ${currentPanel.panelHeight}`
             }}
           >
-            <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl">
-              <img
-                src={currentPanel.imageUrl}
-                alt={`Panel ${currentIndex + 1}`}
-                className="absolute inset-0 w-full h-full object-contain"
-                style={{ backgroundColor: currentPanel.backgroundColor || '#ffffff' }}
-              />
+            <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl"
+              style={{
+                backgroundColor: currentPanel.backgroundColor || '#ffffff',
+                backgroundImage: currentPanel.imageUrl ? `url(${currentPanel.imageUrl})` : undefined,
+                backgroundSize: (currentPanel as any).backgroundSize || 'contain',
+                backgroundRepeat: (currentPanel as any).backgroundRepeat || 'no-repeat',
+                backgroundPosition: (currentPanel as any).backgroundPosition || 'center'
+              }}
+            >
 
               {currentPanel.elements && currentPanel.elements.length > 0 && currentPanel.elements.map((element) => {
                 if (element.type === 'text') {

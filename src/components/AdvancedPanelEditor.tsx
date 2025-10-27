@@ -816,9 +816,9 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 margin: '0 auto',
                 backgroundColor: localPanel.backgroundColor || '#ffffff',
                 backgroundImage: localPanel.backgroundImage ? `url(${localPanel.backgroundImage})` : undefined,
-                backgroundSize: 'contain',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center'
+                backgroundSize: (localPanel as any).backgroundSize || 'contain',
+                backgroundRepeat: (localPanel as any).backgroundRepeat || 'no-repeat',
+                backgroundPosition: (localPanel as any).backgroundPosition || 'center'
               }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -1709,15 +1709,82 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                     Subir Imagen de Fondo
                   </button>
                   {localPanel.backgroundImage && (
-                    <button
-                      onClick={() => {
-                        const updatedPanel = { ...localPanel, backgroundImage: undefined };
-                        addToHistory(updatedPanel);
-                      }}
-                      className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                    >
-                      Eliminar Fondo
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          const updatedPanel = { ...localPanel, backgroundImage: undefined };
+                          addToHistory(updatedPanel);
+                        }}
+                        className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                      >
+                        Eliminar Fondo
+                      </button>
+
+                      <div className="mt-4 space-y-3 p-3 bg-gray-50 rounded-lg">
+                        <h6 className="text-xs font-semibold text-gray-700 uppercase">Ajustes de Imagen</h6>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Modo de Ajuste
+                          </label>
+                          <select
+                            value={(localPanel as any).backgroundSize || 'contain'}
+                            onChange={(e) => {
+                              const updatedPanel = { ...localPanel, backgroundSize: e.target.value } as any;
+                              addToHistory(updatedPanel);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                          >
+                            <option value="contain">Ajustar (Contain)</option>
+                            <option value="cover">Cubrir (Cover)</option>
+                            <option value="auto">Tamaño Original (Auto)</option>
+                            <option value="100% 100%">Estirar (100%)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Posición
+                          </label>
+                          <select
+                            value={(localPanel as any).backgroundPosition || 'center'}
+                            onChange={(e) => {
+                              const updatedPanel = { ...localPanel, backgroundPosition: e.target.value } as any;
+                              addToHistory(updatedPanel);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                          >
+                            <option value="center">Centro</option>
+                            <option value="top">Arriba</option>
+                            <option value="bottom">Abajo</option>
+                            <option value="left">Izquierda</option>
+                            <option value="right">Derecha</option>
+                            <option value="top left">Arriba Izquierda</option>
+                            <option value="top right">Arriba Derecha</option>
+                            <option value="bottom left">Abajo Izquierda</option>
+                            <option value="bottom right">Abajo Derecha</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={(localPanel as any).backgroundRepeat === 'repeat'}
+                              onChange={(e) => {
+                                const updatedPanel = {
+                                  ...localPanel,
+                                  backgroundRepeat: e.target.checked ? 'repeat' : 'no-repeat'
+                                } as any;
+                                addToHistory(updatedPanel);
+                              }}
+                              className="w-4 h-4 text-purple-600 rounded"
+                            />
+                            <span className="text-sm text-gray-700">Repetir imagen</span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
 
