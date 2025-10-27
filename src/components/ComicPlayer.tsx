@@ -90,6 +90,9 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
                         fontSize: `${element.fontSize}px`,
                         color: element.color,
                         fontWeight: element.fontWeight,
+                        fontStyle: element.fontStyle,
+                        fontFamily: (element as any).fontFamily || 'Arial',
+                        textDecoration: (element as any).textDecoration || 'none',
                         whiteSpace: 'pre-wrap',
                         pointerEvents: 'none',
                         textShadow: '2px 2px 4px rgba(0,0,0,0.5)'

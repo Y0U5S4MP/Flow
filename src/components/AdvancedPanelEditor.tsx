@@ -551,6 +551,8 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       color: element.color || '#000000',
       fontWeight: element.fontWeight || 'normal',
       fontStyle: element.fontStyle || 'normal',
+      fontFamily: (element as any).fontFamily || 'Arial',
+      textDecoration: (element as any).textDecoration || 'none',
       textAlign: (element.textAlign as any) || 'left',
       cursor: draggingElement === element.id ? 'grabbing' : 'grab',
       border: isSelected ? '2px solid #8b5cf6' : 'none',
@@ -1238,34 +1240,105 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                         <>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Texto</label>
-                            <input
-                              type="text"
+                            <textarea
                               value={element.content || ''}
                               onChange={(e) => updateElement(element.id, { content: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                              rows={3}
                             />
                           </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Fuente</label>
+                            <select
+                              value={(element as any).fontFamily || 'Arial'}
+                              onChange={(e) => updateElement(element.id, { fontFamily: e.target.value } as any)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                            >
+                              <option value="Arial">Arial</option>
+                              <option value="Helvetica">Helvetica</option>
+                              <option value="Times New Roman">Times New Roman</option>
+                              <option value="Georgia">Georgia</option>
+                              <option value="Courier New">Courier New</option>
+                              <option value="Verdana">Verdana</option>
+                              <option value="Comic Sans MS">Comic Sans MS</option>
+                              <option value="Impact">Impact</option>
+                              <option value="Trebuchet MS">Trebuchet MS</option>
+                              <option value="Palatino">Palatino</option>
+                              <option value="Garamond">Garamond</option>
+                              <option value="Brush Script MT">Brush Script MT</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Tamaño de Fuente: {element.fontSize || 16}px
+                            </label>
+                            <input
+                              type="range"
+                              min="8"
+                              max="120"
+                              value={element.fontSize || 16}
+                              onChange={(e) => updateElement(element.id, { fontSize: Number(e.target.value) })}
+                              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </div>
+
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Color de Texto</label>
                               <input
                                 type="color"
                                 value={element.color || '#000000'}
                                 onChange={(e) => updateElement(element.id, { color: e.target.value })}
-                                className="w-full h-10 border border-gray-300 rounded-lg"
+                                className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño</label>
-                              <input
-                                type="number"
-                                value={element.fontSize || 16}
-                                onChange={(e) => updateElement(element.id, { fontSize: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                min="8"
-                                max="72"
-                              />
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
+                              <select
+                                value={element.fontWeight || 'normal'}
+                                onChange={(e) => updateElement(element.id, { fontWeight: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                              >
+                                <option value="normal">Normal</option>
+                                <option value="bold">Negrita</option>
+                                <option value="lighter">Ligera</option>
+                              </select>
                             </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              onClick={() => updateElement(element.id, { fontStyle: element.fontStyle === 'italic' ? 'normal' : 'italic' })}
+                              className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                                element.fontStyle === 'italic'
+                                  ? 'bg-purple-500 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              <i>Cursiva</i>
+                            </button>
+                            <button
+                              onClick={() => updateElement(element.id, { textDecoration: (element as any).textDecoration === 'underline' ? 'none' : 'underline' } as any)}
+                              className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                                (element as any).textDecoration === 'underline'
+                                  ? 'bg-purple-500 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              <u>Subrayado</u>
+                            </button>
+                            <button
+                              onClick={() => updateElement(element.id, { textDecoration: (element as any).textDecoration === 'line-through' ? 'none' : 'line-through' } as any)}
+                              className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                                (element as any).textDecoration === 'line-through'
+                                  ? 'bg-purple-500 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              <s>Tachado</s>
+                            </button>
                           </div>
                         </>
                       )}
