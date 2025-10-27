@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { Upload as UploadIcon, Trash2, Eye, Save, X } from 'lucide-react';
+import { Upload as UploadIcon, Trash2, Save, X, Edit, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Comic, Panel } from '../types/Comic';
 import { saveComic } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
-import ComicPreview from '../components/ComicPreview';
+import AdvancedPanelEditor from '../components/AdvancedPanelEditor';
+import ViewerCanvas from '../components/ViewerCanvas';
 
 const Upload: React.FC = () => {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [panels, setPanels] = useState<Panel[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<{ panel: Panel; index: number } | null>(null);
+  const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(null);
 
   if (!user || user.role !== 'creator') {
     return (
@@ -55,6 +57,45 @@ const Upload: React.FC = () => {
 
   const handleRemovePanel = (panelId: string) => {
     setPanels(prev => prev.filter(p => p.id !== panelId));
+  };
+
+  const handleEditPanel = (panel: Panel, index: number) => {
+    setEditingPanel({ panel, index });
+  };
+
+  const handlePanelUpdate = (updatedPanel: Panel) => {
+    if (!editingPanel) return;
+    const newPanels = [...panels];
+    newPanels[editingPanel.index] = updatedPanel;
+    setPanels(newPanels);
+  };
+
+  const handleMovePanel = (index: number, direction: 'up' | 'down') => {
+    const newPanels = [...panels];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= panels.length) return;
+    [newPanels[index], newPanels[newIndex]] = [newPanels[newIndex], newPanels[index]];
+    setPanels(newPanels);
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedPanelIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedPanelIndex === null || draggedPanelIndex === index) return;
+
+    const newPanels = [...panels];
+    const draggedPanel = newPanels[draggedPanelIndex];
+    newPanels.splice(draggedPanelIndex, 1);
+    newPanels.splice(index, 0, draggedPanel);
+    setPanels(newPanels);
+    setDraggedPanelIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedPanelIndex(null);
   };
 
   const handlePublish = async () => {
@@ -158,25 +199,64 @@ const Upload: React.FC = () => {
               </div>
 
               {panels.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="mt-6 space-y-3">
                   {panels.map((panel, index) => (
-                    <div key={panel.id} className="relative group">
-                      <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
-                        <img
-                          src={panel.imageUrl}
-                          alt={`Panel ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+                    <div
+                      key={panel.id}
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className="relative group bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-400 transition-all cursor-move"
+                    >
+                      <div className="flex items-center gap-4">
+                        <GripVertical className="w-5 h-5 text-gray-400" />
+
+                        <div className="flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-full font-bold">
+                          {index + 1}
+                        </div>
+
+                        <div className="flex-1 aspect-video bg-gray-100 rounded-lg overflow-hidden max-w-xs">
+                          <img
+                            src={panel.imageUrl}
+                            alt={`Panel ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => handleMovePanel(index, 'up')}
+                            disabled={index === 0}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMovePanel(index, 'down')}
+                            disabled={index === panels.length - 1}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditPanel(panel, index)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleRemovePanel(panel.id)}
+                            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-bold">
-                        {index + 1}
-                      </div>
-                      <button
-                        onClick={() => handleRemovePanel(panel.id)}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -186,31 +266,40 @@ const Upload: React.FC = () => {
 
           <div className="flex gap-4 mt-8">
             <button
-              onClick={() => setShowPreview(true)}
-              disabled={panels.length === 0}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              <Eye className="w-5 h-5" />
-              Vista Previa
-            </button>
-
-            <button
               onClick={handlePublish}
               disabled={!title.trim() || panels.length === 0 || isUploading}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-5 h-5" />
-              {isUploading ? 'Publicando...' : 'Publicar'}
+              {isUploading ? 'Publicando...' : 'Publicar Historieta'}
             </button>
           </div>
         </div>
+
+        {panels.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+              Vista Previa en Tiempo Real
+            </h2>
+            <div className="bg-gray-900 rounded-2xl p-8">
+              <ViewerCanvas
+                panels={panels}
+                currentPanelIndex={0}
+                isAutoPlay={false}
+                isMuted={true}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      <ComicPreview
-        comic={{ title, description, panels }}
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
-      />
+      {editingPanel && (
+        <AdvancedPanelEditor
+          panel={editingPanel.panel}
+          onPanelUpdate={handlePanelUpdate}
+          onClose={() => setEditingPanel(null)}
+        />
+      )}
     </div>
   );
 };
