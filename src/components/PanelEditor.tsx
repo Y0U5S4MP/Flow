@@ -271,7 +271,7 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
         ctx.fillStyle = element.color || '#000000';
         ctx.textAlign = 'left';
         ctx.fillText(element.content || '', x, y + (element.fontSize || 32));
-      } else if (element.type === 'image' && element.src) {
+      } else if ((element.type === 'image' || element.type === 'gif') && (element.src || element.imageUrl || element.gifUrl)) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         await new Promise((resolve) => {
@@ -280,7 +280,21 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
             resolve(null);
           };
           img.onerror = resolve;
-          img.src = element.src!;
+          img.src = element.src || element.imageUrl || element.gifUrl || '';
+        });
+      } else if (element.type === 'video' && element.videoUrl) {
+        const video = document.createElement('video');
+        video.src = element.videoUrl;
+        video.crossOrigin = 'anonymous';
+        await new Promise((resolve) => {
+          video.onloadeddata = () => {
+            video.currentTime = 0;
+            setTimeout(() => {
+              ctx.drawImage(video, x, y, element.width || 200, element.height || 200);
+              resolve(null);
+            }, 100);
+          };
+          video.onerror = resolve;
         });
       } else if (element.type === 'shape') {
         ctx.fillStyle = element.color || '#000000';
@@ -438,12 +452,29 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
                           {element.content || 'Texto'}
                         </div>
                       )}
-                      {element.type === 'image' && element.src && (
+                      {element.type === 'image' && (element.src || element.imageUrl || element.gifUrl) && (
                         <img
-                          src={element.src}
+                          src={element.src || element.imageUrl || element.gifUrl}
                           alt="element"
                           className="w-full h-full object-cover"
                           draggable={false}
+                        />
+                      )}
+                      {element.type === 'gif' && element.gifUrl && (
+                        <img
+                          src={element.gifUrl}
+                          alt="gif"
+                          className="w-full h-full object-cover"
+                          draggable={false}
+                        />
+                      )}
+                      {element.type === 'video' && element.videoUrl && (
+                        <video
+                          src={element.videoUrl}
+                          className="w-full h-full object-cover"
+                          autoPlay={element.autoplay}
+                          loop={element.loop}
+                          muted
                         />
                       )}
                       {element.type === 'shape' && (
@@ -636,7 +667,7 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
                           </>
                         )}
 
-                        {selectedElement.type === 'image' && (
+                        {(selectedElement.type === 'image' || selectedElement.type === 'gif' || selectedElement.type === 'video') && (
                           <>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -645,7 +676,7 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
                               <input
                                 type="range"
                                 min="50"
-                                max="1000"
+                                max="1600"
                                 value={selectedElement.width || 200}
                                 onChange={(e) => updateElement(selectedElement.id, { width: Number(e.target.value) })}
                                 className="w-full"
@@ -658,7 +689,7 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
                               <input
                                 type="range"
                                 min="50"
-                                max="1000"
+                                max="1200"
                                 value={selectedElement.height || 200}
                                 onChange={(e) => updateElement(selectedElement.id, { height: Number(e.target.value) })}
                                 className="w-full"
@@ -712,6 +743,8 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
                             <span className="text-sm capitalize">
                               {element.type === 'text' && (element.content?.slice(0, 20) || 'Texto')}
                               {element.type === 'image' && 'Imagen'}
+                              {element.type === 'gif' && 'GIF'}
+                              {element.type === 'video' && 'Video'}
                               {element.type === 'shape' && (element.shape === 'circle' ? 'Círculo' : 'Cuadrado')}
                             </span>
                           </div>
