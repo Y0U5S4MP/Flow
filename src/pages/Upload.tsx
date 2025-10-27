@@ -6,7 +6,7 @@ import { saveComic } from '../utils/storage';
 import { v4 as uuidv4 } from 'uuid';
 import MultiPanelUpload from '../components/MultiPanelUpload';
 import DraggablePanelPreview from '../components/DraggablePanelPreview';
-import AdvancedPanelEditor from '../components/AdvancedPanelEditor';
+import PanelEditor from '../components/PanelEditor';
 import ComicPreview from '../components/ComicPreview';
 
 const Upload: React.FC = () => {
@@ -292,11 +292,11 @@ const Upload: React.FC = () => {
           </div>
         </div>
 
-        {/* Advanced Panel Editor Modal */}
+        {/* Panel Editor Modal */}
         {showAdvancedEditor && editingPanel && (
-          <AdvancedPanelEditor
+          <PanelEditor
             panel={editingPanel.panel}
-            onPanelUpdate={handlePanelUpdate}
+            onSave={handlePanelUpdate}
             onClose={() => {
               setShowAdvancedEditor(false);
               setEditingPanel(null);
