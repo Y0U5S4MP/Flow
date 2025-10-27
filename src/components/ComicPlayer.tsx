@@ -104,11 +104,11 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
                     </div>
                   );
                 }
-                if (element.type === 'image' && element.src) {
+                if ((element.type === 'image' || element.type === 'gif') && (element.imageUrl || element.gifUrl)) {
                   return (
                     <img
                       key={element.id}
-                      src={element.src}
+                      src={element.imageUrl || element.gifUrl}
                       alt="Element"
                       style={{
                         position: 'absolute',
@@ -116,7 +116,8 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
                         top: `${(element.y / currentPanel.panelHeight) * 100}%`,
                         width: `${(element.width! / currentPanel.panelWidth) * 100}%`,
                         height: `${(element.height! / currentPanel.panelHeight) * 100}%`,
-                        objectFit: 'contain',
+                        objectFit: (element as any).objectFit || 'contain',
+                        opacity: element.opacity || 1,
                         pointerEvents: 'none'
                       }}
                     />
