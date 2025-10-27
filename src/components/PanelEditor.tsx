@@ -177,18 +177,11 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
   };
 
   const calculateContentBounds = () => {
-    if (editedPanel.elements.length === 0 && !editedPanel.backgroundImage) {
+    if (editedPanel.elements.length === 0) {
       return null;
     }
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    if (editedPanel.backgroundImage) {
-      minX = 0;
-      minY = 0;
-      maxX = panelWidth;
-      maxY = panelHeight;
-    }
 
     editedPanel.elements.forEach(el => {
       const x = el.x || 0;
@@ -202,18 +195,30 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
       maxY = Math.max(maxY, y + height);
     });
 
-    const padding = 20;
+    if (minX === Infinity) {
+      return null;
+    }
+
+    const padding = 50;
+    const finalMinX = Math.max(0, minX - padding);
+    const finalMinY = Math.max(0, minY - padding);
+    const finalWidth = Math.ceil(maxX - minX + padding * 2);
+    const finalHeight = Math.ceil(maxY - minY + padding * 2);
+
     return {
-      minX: Math.max(0, minX - padding),
-      minY: Math.max(0, minY - padding),
-      width: Math.ceil(maxX - minX + padding * 2),
-      height: Math.ceil(maxY - minY + padding * 2)
+      minX: finalMinX,
+      minY: finalMinY,
+      width: finalWidth,
+      height: finalHeight
     };
   };
 
   const cropToContent = () => {
     const bounds = calculateContentBounds();
-    if (!bounds) return;
+    if (!bounds) {
+      alert('No hay elementos para ajustar');
+      return;
+    }
 
     const croppedElements = editedPanel.elements.map(el => ({
       ...el,
@@ -225,7 +230,8 @@ const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => 
       ...editedPanel,
       panelWidth: bounds.width,
       panelHeight: bounds.height,
-      elements: croppedElements
+      elements: croppedElements,
+      backgroundImage: undefined
     });
   };
 
