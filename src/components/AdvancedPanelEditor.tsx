@@ -45,6 +45,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     setHistoryIndex(0);
   }, [panel.id]);
 
+  useEffect(() => {
+    onPanelUpdate(localPanel);
+  }, [localPanel]);
+
   const addToHistory = (newPanel: Panel) => {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newPanel);
