@@ -293,15 +293,15 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
 
-      const scaleX = panelWidth / canvasDisplayWidth;
-      const scaleY = panelHeight / canvasDisplayHeight;
+      const displayScaleX = canvasDisplayWidth / panelWidth;
+      const displayScaleY = canvasDisplayHeight / panelHeight;
 
-      const mouseXInCanvas = (e.clientX - rect.left) / (zoom / 100) * scaleX;
-      const mouseYInCanvas = (e.clientY - rect.top) / (zoom / 100) * scaleY;
+      const elementScreenX = rect.left + (element.x * displayScaleX);
+      const elementScreenY = rect.top + (element.y * displayScaleY);
 
       setDragOffset({
-        x: mouseXInCanvas - element.x,
-        y: mouseYInCanvas - element.y
+        x: e.clientX - elementScreenX,
+        y: e.clientY - elementScreenY
       });
       setResizeStartMouse({
         x: e.clientX,
@@ -319,14 +319,14 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
 
-      const scaleX = panelWidth / canvasDisplayWidth;
-      const scaleY = panelHeight / canvasDisplayHeight;
+      const displayScaleX = canvasDisplayWidth / panelWidth;
+      const displayScaleY = canvasDisplayHeight / panelHeight;
 
-      const mouseXInCanvas = (e.clientX - rect.left) / (zoom / 100) * scaleX;
-      const mouseYInCanvas = (e.clientY - rect.top) / (zoom / 100) * scaleY;
+      const elementScreenX = e.clientX - dragOffset.x;
+      const elementScreenY = e.clientY - dragOffset.y;
 
-      const newX = mouseXInCanvas - dragOffset.x;
-      const newY = mouseYInCanvas - dragOffset.y;
+      const newX = (elementScreenX - rect.left) / displayScaleX;
+      const newY = (elementScreenY - rect.top) / displayScaleY;
 
       updateElement(draggingElement, {
         x: Math.max(0, Math.min(panelWidth - (element.width || 100), newX)),
