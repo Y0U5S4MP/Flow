@@ -420,7 +420,7 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
   };
 
   const calculateContentBounds = () => {
-    if (localPanel.elements.length === 0 && !localPanel.backgroundImage) {
+    if (localPanel.elements.length === 0) {
       return null;
     }
 
@@ -428,13 +428,6 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-
-    if (localPanel.backgroundImage) {
-      minX = 0;
-      minY = 0;
-      maxX = panelWidth;
-      maxY = panelHeight;
-    }
 
     localPanel.elements.forEach(el => {
       const x = el.x || 0;
@@ -447,6 +440,10 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
       maxX = Math.max(maxX, x + width);
       maxY = Math.max(maxY, y + height);
     });
+
+    if (minX === Infinity || maxX === -Infinity) {
+      return null;
+    }
 
     const padding = 20;
     const adjustedMinX = Math.max(0, minX - padding);
@@ -846,7 +843,12 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 backgroundPosition: (localPanel as any).backgroundPosition || 'center'
               }}
               onClick={(e) => {
-                if (e.target === e.currentTarget) {
+                const target = e.target as HTMLElement;
+                if (target === e.currentTarget ||
+                    target.tagName === 'svg' ||
+                    target.tagName === 'rect' ||
+                    target.tagName === 'path' ||
+                    target.closest('.absolute.inset-0')) {
                   setSelectedElement(null);
                 }
               }}
