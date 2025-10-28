@@ -62,8 +62,8 @@ const Upload: React.FC = () => {
   const handleAddBlankPanel = () => {
     const newPanel: Panel = {
       id: uuidv4(),
-      panelWidth: 1920,
-      panelHeight: 1080,
+      panelWidth: 816,
+      panelHeight: 1056,
       elements: [],
       backgroundColor: '#ffffff'
     };
