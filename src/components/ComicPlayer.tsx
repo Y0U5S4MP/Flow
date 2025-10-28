@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, Pause, ChevronLeft, ChevronRight, SkipBack, SkipForward } from 'lucide-react';
-import { Panel } from '../types/Comic';
+import { Panel, PanelTransition } from '../types/Comic';
 
 interface ComicPlayerProps {
   panels: Panel[];
@@ -9,14 +9,32 @@ interface ComicPlayerProps {
 const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev'>('next');
 
   const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev < panels.length - 1 ? prev + 1 : prev));
-  }, [panels.length]);
+    if (currentIndex < panels.length - 1 && !isTransitioning) {
+      setTransitionDirection('next');
+      setIsTransitioning(true);
+      const currentPanel = panels[currentIndex];
+      const duration = currentPanel.transitionToNext?.duration || 500;
+      setTimeout(() => {
+        setCurrentIndex(currentIndex + 1);
+        setIsTransitioning(false);
+      }, duration);
+    }
+  }, [panels, currentIndex, isTransitioning]);
 
   const goToPrevious = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  }, []);
+    if (currentIndex > 0 && !isTransitioning) {
+      setTransitionDirection('prev');
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex(currentIndex - 1);
+        setIsTransitioning(false);
+      }, 500);
+    }
+  }, [currentIndex, isTransitioning]);
 
   const goToFirst = () => {
     setCurrentIndex(0);
@@ -60,6 +78,51 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
 
   const currentPanel = panels[currentIndex];
 
+  const getTransitionStyle = (): React.CSSProperties => {
+    let transition: PanelTransition | undefined;
+
+    if (currentIndex === 0 && currentPanel.entranceTransition) {
+      transition = currentPanel.entranceTransition;
+    } else if (isTransitioning && transitionDirection === 'next' && currentPanel.transitionToNext) {
+      transition = currentPanel.transitionToNext;
+    } else if (currentIndex === panels.length - 1 && currentPanel.exitTransition) {
+      transition = currentPanel.exitTransition;
+    }
+
+    if (!transition || transition.type === 'none') return {};
+
+    const duration = `${transition.duration}ms`;
+    const easing = transition.easing || 'ease-in-out';
+
+    const baseStyle: React.CSSProperties = {
+      transition: `all ${duration} ${easing}`,
+    };
+
+    if (isTransitioning && transitionDirection === 'next') {
+      switch (transition.type) {
+        case 'fade':
+          return { ...baseStyle, opacity: 0 };
+        case 'slide':
+          const direction = transition.direction || 'left';
+          if (direction === 'left') return { ...baseStyle, transform: 'translateX(-100%)' };
+          if (direction === 'right') return { ...baseStyle, transform: 'translateX(100%)' };
+          if (direction === 'up') return { ...baseStyle, transform: 'translateY(-100%)' };
+          if (direction === 'down') return { ...baseStyle, transform: 'translateY(100%)' };
+          break;
+        case 'zoom':
+          return { ...baseStyle, transform: 'scale(0)' };
+        case 'flip':
+          return { ...baseStyle, transform: 'rotateY(90deg)' };
+        case 'wipe':
+          return { ...baseStyle, clipPath: 'inset(0 100% 0 0)' };
+        case 'dissolve':
+          return { ...baseStyle, opacity: 0, filter: 'blur(10px)' };
+      }
+    }
+
+    return baseStyle;
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative bg-gray-800 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
@@ -67,7 +130,8 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
           <div
             className="relative max-w-full max-h-full"
             style={{
-              aspectRatio: `${currentPanel.panelWidth} / ${currentPanel.panelHeight}`
+              aspectRatio: `${currentPanel.panelWidth} / ${currentPanel.panelHeight}`,
+              ...getTransitionStyle()
             }}
           >
             <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl"

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Upload as UploadIcon, Trash2, Save, X, Edit, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
+import { Upload as UploadIcon, Trash2, Save, X, Edit, GripVertical, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { Comic, Panel } from '../types/Comic';
+import { Comic, Panel, PanelTransition } from '../types/Comic';
 import { saveComic } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
 import AdvancedPanelEditor from '../components/AdvancedPanelEditor';
 import ComicPlayer from '../components/ComicPlayer';
+import TransitionSettings from '../components/TransitionSettings';
 
 const Upload: React.FC = () => {
   const { user } = useAuth();
@@ -15,6 +16,8 @@ const Upload: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [editingPanel, setEditingPanel] = useState<{ panel: Panel; index: number } | null>(null);
   const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(null);
+  const [expandedTransitions, setExpandedTransitions] = useState<Set<string>>(new Set());
+  const [showGlobalTransitions, setShowGlobalTransitions] = useState(false);
 
   if (!user || user.role !== 'creator') {
     return (
@@ -99,6 +102,27 @@ const Upload: React.FC = () => {
     setDraggedPanelIndex(null);
   };
 
+  const toggleTransitionExpand = (panelId: string) => {
+    const newExpanded = new Set(expandedTransitions);
+    if (newExpanded.has(panelId)) {
+      newExpanded.delete(panelId);
+    } else {
+      newExpanded.add(panelId);
+    }
+    setExpandedTransitions(newExpanded);
+  };
+
+  const updatePanelTransition = (panelId: string, type: 'entrance' | 'exit' | 'transitionToNext', transition: PanelTransition | undefined) => {
+    setPanels(panels.map(p => {
+      if (p.id === panelId) {
+        if (type === 'entrance') return { ...p, entranceTransition: transition };
+        if (type === 'exit') return { ...p, exitTransition: transition };
+        if (type === 'transitionToNext') return { ...p, transitionToNext: transition };
+      }
+      return p;
+    }));
+  };
+
   const handlePublish = async () => {
     if (!title.trim()) {
       alert('Por favor ingresa un título');
@@ -174,6 +198,36 @@ const Upload: React.FC = () => {
               />
             </div>
 
+            {panels.length > 0 && (
+              <div className="bg-white border-2 border-blue-200 rounded-xl p-4 mb-6">
+                <button
+                  onClick={() => setShowGlobalTransitions(!showGlobalTransitions)}
+                  className="w-full flex items-center justify-between text-left font-semibold text-gray-700 mb-2"
+                >
+                  <span className="flex items-center gap-2">
+                    Transiciones Globales
+                    <span className="text-xs font-normal text-gray-500">(Primer y último panel)</span>
+                  </span>
+                  {showGlobalTransitions ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+
+                {showGlobalTransitions && panels.length > 0 && (
+                  <div className="grid md:grid-cols-2 gap-4 mt-4">
+                    <TransitionSettings
+                      title="Entrada del Primer Panel"
+                      transition={panels[0]?.entranceTransition}
+                      onUpdate={(t) => updatePanelTransition(panels[0].id, 'entrance', t)}
+                    />
+                    <TransitionSettings
+                      title="Salida del Último Panel"
+                      transition={panels[panels.length - 1]?.exitTransition}
+                      onUpdate={(t) => updatePanelTransition(panels[panels.length - 1].id, 'exit', t)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-4">
                 Paneles
@@ -244,6 +298,14 @@ const Upload: React.FC = () => {
 
                         <div className="flex gap-2">
                           <button
+                            onClick={() => toggleTransitionExpand(panel.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                            title="Configurar transición"
+                          >
+                            {expandedTransitions.has(panel.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            Transición
+                          </button>
+                          <button
                             onClick={() => handleEditPanel(panel, index)}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                           >
@@ -258,6 +320,16 @@ const Upload: React.FC = () => {
                           </button>
                         </div>
                       </div>
+
+                      {expandedTransitions.has(panel.id) && index < panels.length - 1 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <TransitionSettings
+                            title={`Transición hacia el Panel ${index + 2}`}
+                            transition={panel.transitionToNext}
+                            onUpdate={(t) => updatePanelTransition(panel.id, 'transitionToNext', t)}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

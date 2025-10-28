@@ -10,6 +10,7 @@ export interface Comic {
 
 export interface Panel {
   id: string;
+  imageUrl?: string;
   elements: ComicElement[];
   animations?: Animation[];
   audio?: AudioConfig | null;
@@ -19,6 +20,9 @@ export interface Panel {
   backgroundImage?: string;
   backgroundColor?: string;
   filters?: MediaFilter[];
+  entranceTransition?: PanelTransition;
+  exitTransition?: PanelTransition;
+  transitionToNext?: PanelTransition;
 }
 
 export interface ComicElement {
@@ -108,6 +112,13 @@ export interface Transition {
   type: 'fade' | 'slide' | 'zoom' | 'flip';
   duration: number;
   direction?: 'left' | 'right' | 'up' | 'down';
+}
+
+export interface PanelTransition {
+  type: 'none' | 'fade' | 'slide' | 'zoom' | 'flip' | 'wipe' | 'dissolve';
+  duration: number;
+  direction?: 'left' | 'right' | 'up' | 'down';
+  easing?: 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear';
 }
 
 export interface DrawingStroke {
