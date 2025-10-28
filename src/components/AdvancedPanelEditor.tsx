@@ -449,11 +449,14 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
     });
 
     const padding = 20;
+    const adjustedMinX = Math.max(0, minX - padding);
+    const adjustedMinY = Math.max(0, minY - padding);
+
     return {
-      minX: Math.max(0, minX - padding),
-      minY: Math.max(0, minY - padding),
-      width: Math.ceil(maxX - minX + padding * 2),
-      height: Math.ceil(maxY - minY + padding * 2)
+      minX: adjustedMinX,
+      minY: adjustedMinY,
+      width: Math.ceil(maxX - adjustedMinX + padding),
+      height: Math.ceil(maxY - adjustedMinY + padding)
     };
   };
 
@@ -610,7 +613,11 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             <img
               src={element.imageUrl}
               alt="Imagen"
-              style={{ ...style, objectFit: (element as any).objectFit || 'contain' }}
+              style={{
+                ...style,
+                objectFit: 'contain',
+                display: 'block'
+              }}
             />
           );
 
@@ -619,7 +626,11 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
             <img
               src={element.gifUrl}
               alt="GIF"
-              style={{ ...style, objectFit: (element as any).objectFit || 'contain' }}
+              style={{
+                ...style,
+                objectFit: 'contain',
+                display: 'block'
+              }}
             />
           );
 
@@ -833,6 +844,11 @@ const AdvancedPanelEditor: React.FC<AdvancedPanelEditorProps> = ({
                 backgroundSize: (localPanel as any).backgroundSize || 'contain',
                 backgroundRepeat: (localPanel as any).backgroundRepeat || 'no-repeat',
                 backgroundPosition: (localPanel as any).backgroundPosition || 'center'
+              }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setSelectedElement(null);
+                }
               }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
