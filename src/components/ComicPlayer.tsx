@@ -11,6 +11,7 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
   const [isAutoPlay, setIsAutoPlay] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev'>('next');
+  const [hasEntered, setHasEntered] = useState(false);
 
   const goToNext = useCallback(() => {
     if (currentIndex < panels.length - 1 && !isTransitioning) {
@@ -43,6 +44,15 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
   const goToLast = () => {
     setCurrentIndex(panels.length - 1);
   };
+
+  useEffect(() => {
+    if (currentIndex === 0 && panels[0]?.entranceTransition && !hasEntered) {
+      const timer = setTimeout(() => {
+        setHasEntered(true);
+      }, panels[0].entranceTransition.duration || 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, panels, hasEntered]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,13 +90,21 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
 
   const getTransitionStyle = (): React.CSSProperties => {
     let transition: PanelTransition | undefined;
+    let isEntering = false;
+    let isExiting = false;
 
-    if (currentIndex === 0 && currentPanel.entranceTransition) {
+    if (currentIndex === 0 && currentPanel.entranceTransition && !hasEntered) {
       transition = currentPanel.entranceTransition;
-    } else if (isTransitioning && transitionDirection === 'next' && currentPanel.transitionToNext) {
-      transition = currentPanel.transitionToNext;
-    } else if (currentIndex === panels.length - 1 && currentPanel.exitTransition) {
+      isEntering = true;
+    } else if (isTransitioning && transitionDirection === 'next') {
+      const previousPanel = panels[currentIndex - 1];
+      if (previousPanel?.transitionToNext) {
+        transition = previousPanel.transitionToNext;
+        isExiting = true;
+      }
+    } else if (currentIndex === panels.length - 1 && currentPanel.exitTransition && isTransitioning) {
       transition = currentPanel.exitTransition;
+      isExiting = true;
     }
 
     if (!transition || transition.type === 'none') return {};
@@ -98,26 +116,35 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
       transition: `all ${duration} ${easing}`,
     };
 
-    if (isTransitioning && transitionDirection === 'next') {
-      switch (transition.type) {
+    const getTransformStyle = (reverse: boolean = false) => {
+      switch (transition!.type) {
         case 'fade':
-          return { ...baseStyle, opacity: 0 };
+          return { opacity: reverse ? 1 : 0 };
         case 'slide':
-          const direction = transition.direction || 'left';
-          if (direction === 'left') return { ...baseStyle, transform: 'translateX(-100%)' };
-          if (direction === 'right') return { ...baseStyle, transform: 'translateX(100%)' };
-          if (direction === 'up') return { ...baseStyle, transform: 'translateY(-100%)' };
-          if (direction === 'down') return { ...baseStyle, transform: 'translateY(100%)' };
-          break;
+          const direction = transition!.direction || 'left';
+          let transform = '';
+          if (direction === 'left') transform = reverse ? 'translateX(0)' : 'translateX(-100%)';
+          else if (direction === 'right') transform = reverse ? 'translateX(0)' : 'translateX(100%)';
+          else if (direction === 'up') transform = reverse ? 'translateY(0)' : 'translateY(-100%)';
+          else if (direction === 'down') transform = reverse ? 'translateY(0)' : 'translateY(100%)';
+          return { transform };
         case 'zoom':
-          return { ...baseStyle, transform: 'scale(0)' };
+          return { transform: reverse ? 'scale(1)' : 'scale(0)' };
         case 'flip':
-          return { ...baseStyle, transform: 'rotateY(90deg)' };
+          return { transform: reverse ? 'rotateY(0deg)' : 'rotateY(90deg)' };
         case 'wipe':
-          return { ...baseStyle, clipPath: 'inset(0 100% 0 0)' };
+          return { clipPath: reverse ? 'inset(0 0 0 0)' : 'inset(0 100% 0 0)' };
         case 'dissolve':
-          return { ...baseStyle, opacity: 0, filter: 'blur(10px)' };
+          return { opacity: reverse ? 1 : 0, filter: reverse ? 'blur(0px)' : 'blur(10px)' };
+        default:
+          return {};
       }
+    };
+
+    if (isEntering) {
+      return { ...baseStyle, ...getTransformStyle(false) };
+    } else if (isExiting) {
+      return { ...baseStyle, ...getTransformStyle(true) };
     }
 
     return baseStyle;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload as UploadIcon, Trash2, Save, X, Edit, GripVertical, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload as UploadIcon, Trash2, Save, X, Edit, GripVertical, ArrowUp, ArrowDown, ChevronDown, ChevronUp, FilePlus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Comic, Panel, PanelTransition } from '../types/Comic';
 import { saveComic } from '../utils/storage';
@@ -57,6 +57,17 @@ const Upload: React.FC = () => {
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleAddBlankPanel = () => {
+    const newPanel: Panel = {
+      id: uuidv4(),
+      panelWidth: 1920,
+      panelHeight: 1080,
+      elements: [],
+      backgroundColor: '#ffffff'
+    };
+    setPanels(prev => [...prev, newPanel]);
   };
 
   const handleRemovePanel = (panelId: string) => {
@@ -233,24 +244,39 @@ const Upload: React.FC = () => {
                 Paneles
               </label>
 
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <label htmlFor="image-upload" className="cursor-pointer">
-                  <UploadIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-700 mb-2">
-                    Haz clic para subir imágenes
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label htmlFor="image-upload" className="cursor-pointer">
+                    <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-base font-medium text-gray-700 mb-1">
+                      Subir imágenes
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Selecciona múltiples imágenes
+                    </p>
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleAddBlankPanel}
+                  className="border-2 border-dashed border-green-300 rounded-xl p-8 text-center hover:border-green-500 transition-colors bg-green-50 hover:bg-green-100"
+                >
+                  <FilePlus className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <p className="text-base font-medium text-gray-700 mb-1">
+                    Panel en Blanco
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Puedes seleccionar múltiples imágenes
+                  <p className="text-xs text-gray-500">
+                    Crear panel desde cero
                   </p>
-                </label>
+                </button>
               </div>
 
               {panels.length > 0 && (
@@ -272,11 +298,21 @@ const Upload: React.FC = () => {
                         </div>
 
                         <div className="flex-1 aspect-video bg-gray-100 rounded-lg overflow-hidden max-w-xs">
-                          <img
-                            src={panel.imageUrl}
-                            alt={`Panel ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
+                          {panel.imageUrl ? (
+                            <img
+                              src={panel.imageUrl}
+                              alt={`Panel ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: panel.backgroundColor }}>
+                              <div className="text-center">
+                                <FilePlus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-xs text-gray-500">Panel en Blanco</p>
+                                <p className="text-xs text-gray-400">{panel.panelWidth}x{panel.panelHeight}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-col gap-2">
