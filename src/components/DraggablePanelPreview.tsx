@@ -259,9 +259,6 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
                               <ArrowDown className="w-3 h-3 text-gray-600" />
                             </button>
                           </div>
-                          <div className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                            {index + 1}
-                          </div>
                           <span className="text-sm font-medium text-gray-700">
                             Panel {index + 1}
                           </span>
