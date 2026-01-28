@@ -1,69 +1,73 @@
+// Interfaz principal que representa un cómic completo
 export interface Comic {
   id: string;
   title: string;
   description?: string;
-  panels: Panel[];
+  panels: Panel[]; // Array de paneles que componen el cómic
   createdAt: string;
   updatedAt?: string;
   backgroundMusic?: AudioConfig;
 }
 
+// Interfaz que representa un panel individual en el cómic
 export interface Panel {
   id: string;
   imageUrl?: string;
-  elements: ComicElement[];
-  animations?: Animation[];
+  elements: ComicElement[]; // Elementos contenidos en el panel
+  animations?: Animation[]; // Animaciones del panel
   audio?: AudioConfig | null;
-  transitions?: Transition[];
-  panelWidth?: number;
-  panelHeight?: number;
-  backgroundImage?: string;
-  backgroundColor?: string;
-  filters?: MediaFilter[];
-  entranceTransition?: PanelTransition;
-  exitTransition?: PanelTransition;
-  transitionToNext?: PanelTransition;
+  transitions?: Transition[]; // Transiciones a otros paneles
+  panelWidth?: number; // Ancho del panel en píxeles
+  panelHeight?: number; // Alto del panel en píxeles
+  backgroundImage?: string; // URL de la imagen de fondo
+  backgroundColor?: string; // Color de fondo del panel
+  filters?: MediaFilter[]; // Filtros visuales aplicados
+  entranceTransition?: PanelTransition; // Transición de entrada
+  exitTransition?: PanelTransition; // Transición de salida
+  transitionToNext?: PanelTransition; // Transición al siguiente panel
 }
 
+// Interfaz que representa un elemento dentro de un panel
+// Puede ser texto, imagen, video, forma, dibujo, etc.
 export interface ComicElement {
   id: string;
-  type: 'text' | 'brush' | 'shape' | 'image' | 'gif' | 'video' | 'line' | 'arrow' | 'sticker';
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  content?: string;
-  color?: string;
-  fontSize?: number;
-  strokeWidth?: number;
-  path?: Point[];
-  shape?: 'rectangle' | 'circle' | 'triangle';
-  imageUrl?: string;
-  videoUrl?: string;
-  gifUrl?: string;
-  autoplay?: boolean;
-  loop?: boolean;
-  volume?: number;
-  startTime?: number;
-  endTime?: number;
-  playbackSpeed?: number;
-  filters?: MediaFilter[];
-  visible?: boolean;
-  fontWeight?: string;
-  fontStyle?: string;
-  textAlign?: string;
-  appearanceOrder?: number;
-  entranceAnimation?: ElementAnimation;
-  exitAnimation?: ElementAnimation;
-  rotation?: number;
-  flipHorizontal?: boolean;
-  flipVertical?: boolean;
-  opacity?: number;
-  lineStart?: Point;
-  lineEnd?: Point;
-  stickerType?: string;
-  soundEffect?: string;
-  appearanceDelay?: number;
+  type: 'text' | 'brush' | 'shape' | 'image' | 'gif' | 'video' | 'line' | 'arrow' | 'sticker'; // Tipo de elemento
+  x: number; // Posición X en el panel
+  y: number; // Posición Y en el panel
+  width?: number; // Ancho del elemento
+  height?: number; // Alto del elemento
+  content?: string; // Contenido de texto
+  color?: string; // Color del elemento
+  fontSize?: number; // Tamaño de fuente (para texto)
+  strokeWidth?: number; // Ancho del trazo (para dibujos)
+  path?: Point[]; // Puntos del trazo (para dibujos libres)
+  shape?: 'rectangle' | 'circle' | 'triangle'; // Forma geométrica
+  imageUrl?: string; // URL de imagen
+  videoUrl?: string; // URL de video
+  gifUrl?: string; // URL de GIF
+  autoplay?: boolean; // Reproducción automática
+  loop?: boolean; // Reproducción en bucle
+  volume?: number; // Volumen de audio
+  startTime?: number; // Tiempo de inicio (video)
+  endTime?: number; // Tiempo de fin (video)
+  playbackSpeed?: number; // Velocidad de reproducción
+  filters?: MediaFilter[]; // Filtros aplicados
+  visible?: boolean; // Visibilidad del elemento
+  fontWeight?: string; // Peso de fuente
+  fontStyle?: string; // Estilo de fuente
+  textAlign?: string; // Alineación de texto
+  appearanceOrder?: number; // Orden de aparición
+  entranceAnimation?: ElementAnimation; // Animación de entrada
+  exitAnimation?: ElementAnimation; // Animación de salida
+  rotation?: number; // Rotación en grados
+  flipHorizontal?: boolean; // Volteo horizontal
+  flipVertical?: boolean; // Volteo vertical
+  opacity?: number; // Opacidad (0-1)
+  lineStart?: Point; // Punto de inicio de línea
+  lineEnd?: Point; // Punto de fin de línea
+  stickerType?: string; // Tipo de pegatina
+  soundEffect?: string; // Efecto de sonido
+  appearanceDelay?: number; // Retraso de aparición
 }
 
 export interface MediaFilter {

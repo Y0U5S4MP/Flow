@@ -1,8 +1,10 @@
+// Configuración de Tailwind CSS para Frameflow
+// Define el contenido a procesar y la estructura del tema
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'], // Archivos a procesar por Tailwind
   theme: {
-    extend: {},
+    extend: {}, // Extensiones de tema personalizadas (opcional)
   },
-  plugins: [],
+  plugins: [], // Plugins de Tailwind (opcional)
 };

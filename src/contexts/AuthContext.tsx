@@ -9,7 +9,8 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo users for testing
+// Usuarios de demostración para pruebas
+// Contexto de autenticación que mantiene el estado del usuario actual
 const DEMO_USERS: User[] = [
   {
     id: '1',
