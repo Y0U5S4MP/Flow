@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState } from '../types/User';
 
+// Interfaz del contexto que proporciona autenticación y gestión de usuarios
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  register: (username: string, email: string, password: string, role: 'creator' | 'reader') => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>; // Inicia sesión con email y contraseña
+  logout: () => void; // Cierra la sesión actual
+  register: (username: string, email: string, password: string, role: 'creator' | 'reader') => Promise<boolean>; // Registra un nuevo usuario
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Usuarios de demostración para pruebas
+// Usuarios de demostración para pruebas (sin base de datos real)
 // Contexto de autenticación que mantiene el estado del usuario actual
+// Gestiona sesiones, login, registro y persistencia de datos en localStorage
 const DEMO_USERS: User[] = [
   {
     id: '1',

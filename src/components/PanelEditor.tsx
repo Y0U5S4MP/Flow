@@ -6,10 +6,13 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
+// Editor de panel básico (actualmente no usado)
+// Proporciona funcionalidad simplificada para editar paneles
+// Incluye gestión de historial, zoom y herramientas básicas
 interface PanelEditorProps {
-  panel: Panel;
-  onSave: (panel: Panel) => void;
-  onClose: () => void;
+  panel: Panel; // Panel a editar
+  onSave: (panel: Panel) => void; // Callback cuando se guarda
+  onClose: () => void; // Callback cuando se cierra el editor
 }
 
 const PanelEditor: React.FC<PanelEditorProps> = ({ panel, onSave, onClose }) => {

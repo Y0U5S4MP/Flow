@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { Panel, ComicElement, Transition } from '../types/Comic';
-import {
-  FileText, Image, Film, Upload as UploadIcon,
-  Edit, Trash2, Eye, EyeOff, Copy,
-  RotateCw, Move3D, Zap, Music, Sparkles, ArrowUp, ArrowDown, ArrowRightLeft
-} from 'lucide-react';
+import { FileText, Image, Film, Upload as UploadIcon, CreditCard as Edit, Trash2, Eye, EyeOff, Copy, RotateCw, Move3d as Move3D, Zap, Music, Sparkles, ArrowUp, ArrowDown, ArrowRightLeft } from 'lucide-react';
 
+// Componente que muestra una lista de paneles con controles para:
+//   - Reordenar paneles (mover arriba/abajo)
+//   - Ocultar/mostrar paneles individualmente
+//   - Editar paneles
+//   - Eliminar paneles
+//   - Duplicar paneles
 interface DraggablePanelPreviewProps {
-  panels: Panel[];
-  onPanelsReorder: (panels: Panel[]) => void;
-  onPanelEdit: (panel: Panel, index: number) => void;
-  onPanelDelete: (index: number) => void;
-  onTransitionUpdate?: (panelIndex: number, transition: Transition) => void;
-  currentPanelIndex?: number;
+  panels: Panel[]; // Array de paneles a mostrar
+  onPanelsReorder: (panels: Panel[]) => void; // Callback cuando se reordenan los paneles
+  onPanelEdit: (panel: Panel, index: number) => void; // Callback para editar un panel
+  onPanelDelete: (index: number) => void; // Callback para eliminar un panel
+  onTransitionUpdate?: (panelIndex: number, transition: Transition) => void; // Callback para actualizar transición
+  currentPanelIndex?: number; // Índice del panel actualmente seleccionado
 }
 
 const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
@@ -23,6 +25,7 @@ const DraggablePanelPreview: React.FC<DraggablePanelPreviewProps> = ({
   onTransitionUpdate,
   currentPanelIndex = -1
 }) => {
+  // Mantiene un conjunto de índices de paneles ocultos
   const [hiddenPanels, setHiddenPanels] = useState<Set<number>>(new Set());
 
   const movePanelUp = (index: number) => {
