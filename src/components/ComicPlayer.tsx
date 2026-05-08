@@ -137,21 +137,10 @@ const ComicPlayer: React.FC<ComicPlayerProps> = ({ panels }) => {
 
   return (
     <div className="space-y-4">
-      {/* Panel con transición */}
-      <div
-        className="relative bg-gray-800 rounded-lg overflow-hidden"
-        style={{ aspectRatio: '16/9' }}
-      >
-        <div className="absolute inset-0 flex items-center justify-center p-4">
-          <div
-            style={{
-              width: '100%',
-              maxHeight: '100%',
-              ...panelStyle,
-            }}
-          >
-            <ViewerCanvas panel={panel} isPlaying={isAutoPlay} />
-          </div>
+      {/* Panel con transición — el lienzo se muestra completo con su aspect ratio */}
+      <div className="relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center p-4">
+        <div style={{ width: '100%', maxHeight: '70vh', ...panelStyle }}>
+          <ViewerCanvas panel={panel} isPlaying={isAutoPlay} />
         </div>
 
         {/* Contador */}
