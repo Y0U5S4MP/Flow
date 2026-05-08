@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Panel, ComicElement } from '../types/Comic';
 
 interface ViewerCanvasProps {
@@ -7,186 +7,119 @@ interface ViewerCanvasProps {
 }
 
 const ViewerCanvas: React.FC<ViewerCanvasProps> = ({ panel, isPlaying }) => {
-  // ── Render con HTML/CSS en vez de <canvas> para soportar imágenes,
-  //    GIFs animados, videos y todos los tipos de ComicElement correctamente.
-  const panelW = panel.panelWidth || 800;
-  const panelH = panel.panelHeight || 600;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const sorted = [...(panel.elements || [])].sort(
-    (a, b) => (a.appearanceOrder ?? 0) - (b.appearanceOrder ?? 0)
-  );
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const renderElement = (el: ComicElement) => {
-    const style: React.CSSProperties = {
-      position: 'absolute',
-      left: `${(el.x / panelW) * 100}%`,
-      top: `${(el.y / panelH) * 100}%`,
-      width: el.width ? `${(el.width / panelW) * 100}%` : 'auto',
-      height: el.height ? `${(el.height / panelH) * 100}%` : 'auto',
-      pointerEvents: 'none',
-      opacity: el.opacity ?? 1,
-      transform: [
-        el.rotation ? `rotate(${el.rotation}deg)` : '',
-        el.flipHorizontal ? 'scaleX(-1)' : '',
-        el.flipVertical ? 'scaleY(-1)' : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || undefined,
-    };
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    switch (el.type) {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Set canvas background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw elements with animations if playing
+    panel.elements.forEach((element, index) => {
+      if (isPlaying && panel.animations && panel.animations[index]) {
+        drawAnimatedElement(ctx, element, panel.animations[index]);
+      } else {
+        drawElement(ctx, element);
+      }
+    });
+  }, [panel, isPlaying]);
+
+  const drawElement = (ctx: CanvasRenderingContext2D, element: ComicElement) => {
+    ctx.save();
+    
+    switch (element.type) {
       case 'text':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...style,
-              fontSize: el.fontSize ?? 16,
-              color: el.color ?? '#000',
-              fontWeight: el.fontWeight ?? 'normal',
-              fontStyle: el.fontStyle ?? 'normal',
-              fontFamily: (el as any).fontFamily ?? 'Arial',
-              textDecoration: (el as any).textDecoration ?? 'none',
-              textAlign: (el.textAlign as any) ?? 'left',
-              whiteSpace: 'pre-wrap',
-              textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
-            }}
-          >
-            {el.content}
-          </div>
-        );
-
-      case 'image':
-        return (
-          <img
-            key={el.id}
-            src={el.imageUrl}
-            alt="elemento"
-            style={{ ...style, objectFit: (el as any).objectFit ?? 'contain' }}
-          />
-        );
+        ctx.font = `${element.fontSize || 16}px Arial`;
+        ctx.fillStyle = element.color || '#000000';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(element.content || '', element.x, element.y);
+        break;
+        
+      case 'brush':
+        if (element.path && element.path.length > 0) {
+          ctx.strokeStyle = element.color || '#000000';
+          ctx.lineWidth = element.strokeWidth || 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          
+          ctx.beginPath();
+          ctx.moveTo(element.path[0].x, element.path[0].y);
+          element.path.forEach(point => {
+            ctx.lineTo(point.x, point.y);
+          });
+          ctx.stroke();
+        }
+        break;
+        
+      case 'shape':
+        ctx.fillStyle = element.color || '#000000';
+        if (element.shape === 'rectangle') {
+          ctx.fillRect(element.x, element.y, element.width || 50, element.height || 50);
+        } else if (element.shape === 'circle') {
+          ctx.beginPath();
+          ctx.arc(element.x + (element.width || 50) / 2, element.y + (element.height || 50) / 2, (element.width || 50) / 2, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+        break;
 
       case 'gif':
-        return (
-          <img
-            key={el.id}
-            src={el.gifUrl}
-            alt="gif"
-            style={{ ...style, objectFit: 'contain' }}
-          />
-        );
+        if (element.gifUrl) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, element.x, element.y, element.width || 200, element.height || 150);
+          };
+          img.src = element.gifUrl;
+        }
+        break;
 
       case 'video':
-        return (
-          <video
-            key={el.id}
-            src={el.videoUrl}
-            style={style}
-            autoPlay={isPlaying && (el.autoplay ?? true)}
-            loop={el.loop ?? true}
-            muted
-            playsInline
-          />
-        );
-
-      case 'shape':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...style,
-              backgroundColor: el.color ?? '#000',
-              borderRadius: el.shape === 'circle' ? '50%' : 0,
-            }}
-          />
-        );
-
-      case 'line':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...style,
-              height: el.strokeWidth ?? 2,
-              backgroundColor: el.color ?? '#000',
-            }}
-          />
-        );
-
-      case 'arrow':
-        return (
-          <svg
-            key={el.id}
-            style={{ ...style }}
-            viewBox="0 0 100 20"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <marker
-                id={`ah-${el.id}`}
-                markerWidth="10"
-                markerHeight="10"
-                refX="9"
-                refY="3"
-                orient="auto"
-              >
-                <polygon points="0 0,10 3,0 6" fill={el.color ?? '#000'} />
-              </marker>
-            </defs>
-            <line
-              x1="0"
-              y1="10"
-              x2="95"
-              y2="10"
-              stroke={el.color ?? '#000'}
-              strokeWidth={el.strokeWidth ?? 2}
-              markerEnd={`url(#ah-${el.id})`}
-            />
-          </svg>
-        );
-
-      case 'sticker':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...style,
-              fontSize: el.width ? `${(el.width / panelW) * 100}vw` : 40,
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {el.stickerType ?? '😊'}
-          </div>
-        );
-
-      default:
-        return null;
+        if (element.videoUrl) {
+          // For viewer, we'll show a placeholder or first frame
+          const video = document.createElement('video');
+          video.src = element.videoUrl;
+          video.currentTime = 0;
+          video.onloadeddata = () => {
+            ctx.drawImage(video, element.x, element.y, element.width || 300, element.height || 200);
+          };
+        }
+        break;
     }
+    
+    ctx.restore();
+  };
+
+  const drawAnimatedElement = (ctx: CanvasRenderingContext2D, element: ComicElement, animation: any) => {
+    // Apply animation transformations
+    ctx.save();
+    
+    if (animation.type === 'fadeIn') {
+      ctx.globalAlpha = 0.7; // Simplified animation
+    } else if (animation.type === 'slideIn') {
+      ctx.translate(10, 0); // Simplified slide effect
+    }
+    
+    drawElement(ctx, element);
+    ctx.restore();
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex items-center justify-center"
-      style={{ width: '100%', maxWidth: 800 }}
-    >
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          aspectRatio: `${panelW} / ${panelH}`,
-          backgroundColor: panel.backgroundColor ?? '#ffffff',
-          backgroundImage: panel.backgroundImage
-            ? `url(${panel.backgroundImage})`
-            : undefined,
-          backgroundSize: (panel as any).backgroundSize ?? 'cover',
-          backgroundRepeat: (panel as any).backgroundRepeat ?? 'no-repeat',
-          backgroundPosition: (panel as any).backgroundPosition ?? 'center',
-        }}
-      >
-        {sorted.filter(el => el.visible !== false).map(renderElement)}
-      </div>
+    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={600}
+        className="block"
+      />
     </div>
   );
 };
