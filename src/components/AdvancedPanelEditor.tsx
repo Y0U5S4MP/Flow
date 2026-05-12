@@ -1,12 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { Panel, ComicElement, ElementAnimation } from '../types/Comic';
+import TransitionSettings from './TransitionSettings';
+import { injectEntranceCSS, buildEntranceAnimation } from './ViewerCanvas';
 import {
   X, Undo, Redo, Grid2x2 as Grid, ZoomIn, ZoomOut,
   Type, Square, Circle, Trash2, Eye, EyeOff, Download,
   Image as ImageIcon, ArrowUp, ArrowDown, Play, Lock, Unlock,
-  Minus, ArrowRight, Smile, Settings, Crop, Save, Copy,
-  AlignCenter, Bold, Italic, Underline, ChevronDown, ChevronUp,
-  Move, RotateCcw, Layers,
+  Minus, ArrowRight, Smile, Settings, Save, Copy,
+  Bold, Italic, Underline, ChevronDown, ChevronUp,
+  Move, Layers, Pencil, MessageCircle, MessageSquare,
+  FileText, Film, AlignLeft, Palette, Clapperboard,
+  GripVertical, Timer,
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,17 +52,18 @@ const HANDLES = [
 
 // ─── Tipos de elementos con etiquetas amigables ───────────────────────────────
 const ELEMENT_BUTTONS = [
-  { type: 'text',    icon: Type,      label: 'Texto',       desc: 'Añade texto libre', color: 'blue' },
-  { type: 'speech',  icon: null,      label: '💬 Globo',    desc: 'Globo de diálogo',  color: 'green', emoji: '💬' },
-  { type: 'thought', icon: null,      label: '💭 Pensamiento', desc: 'Burbuja de pensamiento', color: 'purple', emoji: '💭' },
-  { type: 'caption', icon: null,      label: '📋 Narración', desc: 'Caja de narrador',  color: 'yellow', emoji: '📋' },
-  { type: 'shape-rect', icon: Square, label: 'Rectángulo',  desc: 'Forma cuadrada',    color: 'orange' },
-  { type: 'shape-circle', icon: Circle, label: 'Círculo',   desc: 'Forma circular',    color: 'red' },
-  { type: 'image',   icon: ImageIcon, label: 'Imagen',      desc: 'Sube una imagen o GIF', color: 'indigo' },
-  { type: 'sticker', icon: Smile,     label: 'Emoji',       desc: 'Emoji decorativo',  color: 'pink' },
-  { type: 'line',    icon: Minus,     label: 'Línea',       desc: 'Línea recta',       color: 'gray' },
-  { type: 'arrow',   icon: ArrowRight,label: 'Flecha',      desc: 'Flecha direccional',color: 'gray' },
-];
+  { type: 'text',         icon: Type,          label: 'Texto',        desc: 'Texto libre',           color: 'blue'   },
+  { type: 'speech',       icon: MessageCircle, label: 'Globo',        desc: 'Globo de diálogo',      color: 'green'  },
+  { type: 'thought',      icon: MessageSquare, label: 'Pensamiento',  desc: 'Burbuja de pensamiento',color: 'purple' },
+  { type: 'caption',      icon: FileText,      label: 'Narración',    desc: 'Caja de narrador',      color: 'yellow' },
+  { type: 'shape-rect',   icon: Square,        label: 'Rectángulo',   desc: 'Forma cuadrada',        color: 'orange' },
+  { type: 'shape-circle', icon: Circle,        label: 'Círculo',      desc: 'Forma circular',        color: 'orange' },
+  { type: 'image',        icon: ImageIcon,     label: 'Imagen/GIF',   desc: 'Imagen o GIF animado',  color: 'indigo' },
+  { type: 'video',        icon: Film,          label: 'Video',        desc: 'Video MP4/WebM',        color: 'red'    },
+  { type: 'sticker',      icon: Smile,         label: 'Emoji',        desc: 'Emoji decorativo',      color: 'pink'   },
+  { type: 'line',         icon: Minus,         label: 'Línea',        desc: 'Línea recta',           color: 'gray'   },
+  { type: 'arrow',        icon: ArrowRight,    label: 'Flecha',       desc: 'Flecha direccional',    color: 'gray'   },
+] as const;
 
 const COLOR_BTN: Record<string, string> = {
   blue:   'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
@@ -93,6 +98,11 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
   const [previewAnim, setPreviewAnim] = useState(false);
   const [animKey, setAnimKey] = useState(0);
 
+  useEffect(() => { injectEntranceCSS(); }, []);
+
+  // Order editor drag state
+  const [dragOrderIdx, setDragOrderIdx] = useState<number | null>(null);
+
   // Drag / resize state
   const dragRef = useRef<{
     type: 'move' | 'resize';
@@ -103,6 +113,9 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
     scaleX: number;
     scaleY: number;
   } | null>(null);
+
+  // RAF ref for throttling mouse move
+  const rafRef = useRef<number | undefined>(undefined);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -139,12 +152,40 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
     onPanelUpdate(p);
   };
 
+  // ── Scroll preservation for right panel ──────────────────────────────────
+  const rightPanelRef  = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef(0);
+  const prevSelIdRef   = useRef<string | null | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const el = rightPanelRef.current;
+    if (!el) return;
+    if (prevSelIdRef.current !== undefined && selectedId === prevSelIdRef.current) {
+      el.scrollTop = rightScrollRef.current;
+    }
+    prevSelIdRef.current = selectedId;
+  });
+
+  // ── Auto-preview timer ────────────────────────────────────────────────────
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const updateEl = (id: string, changes: Partial<ComicElement>) => {
     commit({
       ...localPanel,
       elements: localPanel.elements.map(e => e.id === id ? { ...e, ...changes } : e),
     });
+    // Auto-preview entrance animation on every property change
+    const base = localPanel.elements.find(e => e.id === id);
+    if (!base) return;
+    const merged = { ...base, ...changes };
+    if (merged.entranceAnimation?.type) {
+      clearTimeout(previewTimerRef.current);
+      setPreviewAnim(true);
+      setAnimKey(k => k + 1);
+      const total = (merged.entranceAnimation.duration || 500) + (merged.entranceAnimation.delay || 0) + 300;
+      previewTimerRef.current = setTimeout(() => setPreviewAnim(false), total);
+    }
   };
 
   const deleteEl = (id: string) => {
@@ -177,23 +218,81 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
       el = { id: uuidv4(), type: 'shape', shape: 'circle', x: cx, y: cy, width: 150, height: 150, color: '#ec4899', appearanceOrder: maxOrder + 1 };
     } else if (type === 'image') {
       const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*,.gif';
+      input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml';
       input.onchange = e => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) return;
+        if (file.size > 15 * 1024 * 1024) { alert('Imagen demasiado grande (máx 15 MB)'); return; }
+        const allowed = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
+        if (!allowed.includes(file.type)) { alert('Formato no permitido'); return; }
         const r = new FileReader();
         r.onload = ev => {
           const url = ev.target?.result as string;
-          const isGif = file.name.toLowerCase().endsWith('.gif');
-          const newEl: ComicElement = {
-            id: uuidv4(), type: isGif ? 'gif' : 'image',
-            x: cx, y: cy, width: 300, height: 200,
-            imageUrl: isGif ? undefined : url,
-            gifUrl: isGif ? url : undefined,
-            appearanceOrder: maxOrder + 1,
+          const isGif = file.type === 'image/gif';
+          if (isGif) {
+            const newEl: ComicElement = {
+              id: uuidv4(), type: 'gif',
+              x: cx, y: cy, width: Math.round(panelW * 0.4), height: Math.round(panelH * 0.4),
+              gifUrl: url, appearanceOrder: maxOrder + 1,
+            };
+            commit({ ...localPanel, elements: [...localPanel.elements, newEl] });
+            setSelectedId(newEl.id);
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              const scale = Math.min((panelW * 0.7) / img.naturalWidth, (panelH * 0.7) / img.naturalHeight, 1);
+              const w = Math.round(img.naturalWidth * scale);
+              const h = Math.round(img.naturalHeight * scale);
+              const newEl: ComicElement = {
+                id: uuidv4(), type: 'image',
+                x: Math.round((panelW - w) / 2), y: Math.round((panelH - h) / 2),
+                width: w, height: h,
+                imageUrl: url, appearanceOrder: maxOrder + 1,
+              };
+              commit({ ...localPanel, elements: [...localPanel.elements, newEl] });
+              setSelectedId(newEl.id);
+            };
+            img.src = url;
+          }
+        };
+        r.readAsDataURL(file);
+      };
+      input.click();
+      return;
+    } else if (type === 'video') {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'video/mp4,video/webm,video/ogg';
+      input.onchange = e => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        if (file.size > 150 * 1024 * 1024) { alert('Video demasiado grande (máx 150 MB)'); return; }
+        const allowed = ['video/mp4','video/webm','video/ogg'];
+        if (!allowed.includes(file.type)) { alert('Formato de video no permitido (MP4, WebM u OGG)'); return; }
+        const r = new FileReader();
+        r.onload = ev => {
+          const url = ev.target?.result as string;
+          // Detect natural video dimensions before inserting
+          const probe = document.createElement('video');
+          const insertVideo = (vw: number, vh: number) => {
+            const scale = Math.min((panelW * 0.8) / vw, (panelH * 0.8) / vh);
+            const w = Math.round(vw * scale);
+            const h = Math.round(vh * scale);
+            const newEl: ComicElement = {
+              id: uuidv4(), type: 'video',
+              x: Math.round((panelW - w) / 2), y: Math.round((panelH - h) / 2),
+              width: w, height: h,
+              videoUrl: url, autoplay: true, loop: true,
+              objectFit: 'contain',
+              appearanceOrder: maxOrder + 1,
+            } as any;
+            commit({ ...localPanel, elements: [...localPanel.elements, newEl] });
+            setSelectedId(newEl.id);
           };
-          commit({ ...localPanel, elements: [...localPanel.elements, newEl] });
-          setSelectedId(newEl.id);
+          probe.onloadedmetadata = () => {
+            insertVideo(probe.videoWidth || 1280, probe.videoHeight || 720);
+          };
+          probe.onerror = () => insertVideo(1280, 720);
+          probe.src = url;
         };
         r.readAsDataURL(file);
       };
@@ -243,49 +342,61 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
     const d = dragRef.current;
     if (!d) return;
 
-    const dx = (e.clientX - d.startMouse.x) / d.scaleX;
-    const dy = (e.clientY - d.startMouse.y) / d.scaleY;
-    const { x: sx, y: sy, w: sw, h: sh } = d.startEl;
-    const ar = sw / sh;
+    // Capture coordinates immediately (before RAF)
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    if (d.type === 'move') {
-      // Snap al centro y bordes
-      let nx = sx + dx;
-      let ny = sy + dy;
-      const el = localPanel.elements.find(x => x.id === d.elementId);
-      const ew = el?.width || 100; const eh = el?.height || 100;
-      const snapX = [0, panelW / 2 - ew / 2, panelW - ew];
-      const snapY = [0, panelH / 2 - eh / 2, panelH - eh];
-      snapX.forEach(s => { if (Math.abs(nx - s) < SNAP_THRESHOLD) nx = s; });
-      snapY.forEach(s => { if (Math.abs(ny - s) < SNAP_THRESHOLD) ny = s; });
-      setLocalPanel(prev => ({
-        ...prev,
-        elements: prev.elements.map(el => el.id === d.elementId ? { ...el, x: nx, y: ny } : el),
-      }));
-    } else if (d.type === 'resize' && d.handle) {
-      let nx = sx, ny = sy, nw = sw, nh = sh;
-      const h = d.handle;
+    if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = undefined;
+      const d2 = dragRef.current;
+      if (!d2) return;
 
-      if (h.includes('e')) nw = Math.max(20, sw + dx);
-      if (h.includes('s')) nh = Math.max(20, sh + dy);
-      if (h.includes('w')) { nw = Math.max(20, sw - dx); nx = sx + sw - nw; }
-      if (h.includes('n')) { nh = Math.max(20, sh - dy); ny = sy + sh - nh; }
+      const dx = (clientX - d2.startMouse.x) / d2.scaleX;
+      const dy = (clientY - d2.startMouse.y) / d2.scaleY;
+      const { x: sx, y: sy, w: sw, h: sh } = d2.startEl;
+      const ar = sw / sh;
 
-      if (lockAR && (h === 'se' || h === 'sw' || h === 'ne' || h === 'nw')) {
-        if (Math.abs(dx) > Math.abs(dy)) { nh = nw / ar; }
-        else { nw = nh * ar; }
-        if (h.includes('n')) ny = sy + sh - nh;
-        if (h.includes('w')) nx = sx + sw - nw;
+      if (d2.type === 'move') {
+        let nx = sx + dx;
+        let ny = sy + dy;
+        setLocalPanel(prev => {
+          const el = prev.elements.find(x => x.id === d2.elementId);
+          const ew = el?.width || 100; const eh = el?.height || 100;
+          const snapX = [0, panelW / 2 - ew / 2, panelW - ew];
+          const snapY = [0, panelH / 2 - eh / 2, panelH - eh];
+          snapX.forEach(s => { if (Math.abs(nx - s) < SNAP_THRESHOLD) nx = s; });
+          snapY.forEach(s => { if (Math.abs(ny - s) < SNAP_THRESHOLD) ny = s; });
+          return {
+            ...prev,
+            elements: prev.elements.map(el => el.id === d2.elementId ? { ...el, x: nx, y: ny } : el),
+          };
+        });
+      } else if (d2.type === 'resize' && d2.handle) {
+        let nx = sx, ny = sy, nw = sw, nh = sh;
+        const h = d2.handle;
+
+        if (h.includes('e')) nw = Math.max(20, sw + dx);
+        if (h.includes('s')) nh = Math.max(20, sh + dy);
+        if (h.includes('w')) { nw = Math.max(20, sw - dx); nx = sx + sw - nw; }
+        if (h.includes('n')) { nh = Math.max(20, sh - dy); ny = sy + sh - nh; }
+
+        if (lockAR && (h === 'se' || h === 'sw' || h === 'ne' || h === 'nw')) {
+          if (Math.abs(dx) > Math.abs(dy)) { nh = nw / ar; }
+          else { nw = nh * ar; }
+          if (h.includes('n')) ny = sy + sh - nh;
+          if (h.includes('w')) nx = sx + sw - nw;
+        }
+
+        setLocalPanel(prev => ({
+          ...prev,
+          elements: prev.elements.map(el =>
+            el.id === d2.elementId ? { ...el, x: nx, y: ny, width: nw, height: nh } : el
+          ),
+        }));
       }
-
-      setLocalPanel(prev => ({
-        ...prev,
-        elements: prev.elements.map(el =>
-          el.id === d.elementId ? { ...el, x: nx, y: ny, width: nw, height: nh } : el
-        ),
-      }));
-    }
-  }, [localPanel, panelW, panelH, lockAR]);
+    });
+  }, [panelW, panelH, lockAR]);
 
   const onCanvasMouseUp = useCallback(() => {
     if (!dragRef.current) return;
@@ -309,6 +420,10 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
     const h    = (el.height || 100) * scY;
     const bubbleType = (el as any).bubbleType as string | undefined;
 
+    // Entrance animation in preview mode (only for the selected element)
+    const showingAnim = previewAnim && isSelected && el.entranceAnimation?.type;
+    const animStr = showingAnim ? buildEntranceAnimation(el.entranceAnimation!) : '';
+
     const wrapStyle: React.CSSProperties = {
       position: 'absolute',
       left, top,
@@ -325,61 +440,78 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
         (el as any).flipHorizontal ? 'scaleX(-1)' : '',
         (el as any).flipVertical   ? 'scaleY(-1)'  : '',
       ].filter(Boolean).join(' ') || undefined,
-    };
-
-    const innerStyle: React.CSSProperties = {
-      width: '100%', height: '100%',
-      overflow: 'hidden',
-      borderRadius: bubbleType === 'speech' || bubbleType === 'thought' ? 12 : 0,
+      ...(animStr ? { animation: animStr, willChange: 'transform, opacity' } : {}),
     };
 
     let inner: React.ReactNode = null;
 
     if (el.type === 'text') {
       if (bubbleType) {
-        const bgColor  = (el as any).bgColor  || '#ffffff';
-        const bdColor  = (el as any).borderColor || '#222222';
-        inner = (
-          <div style={{
-            ...innerStyle,
-            background: bgColor,
-            border: `2px solid ${bdColor}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 8, position: 'relative',
-          }}>
-            {isEditing ? (
-              <textarea
-                autoFocus
-                defaultValue={el.content}
-                onBlur={e => { updateEl(el.id, { content: e.target.value }); setEditingTextId(null); }}
-                style={{ width: '100%', height: '100%', border: 'none', background: 'transparent',
-                         fontSize: (el.fontSize || 24) * scX / (CANVAS_DISPLAY_W / panelW * zoom / 100 * panelW / CANVAS_DISPLAY_W),
-                         resize: 'none', outline: 'none', fontFamily: 'inherit', textAlign: 'center' }}
+        const bgColor = (el as any).bgColor      || '#ffffff';
+        const bdColor = (el as any).borderColor  || '#222222';
+        const spanStyle: React.CSSProperties = {
+          fontSize: Math.max(8, (el.fontSize || 24) * scX),
+          color: el.color || '#1a1a1a', fontWeight: el.fontWeight || 'normal',
+          fontFamily: (el as any).fontFamily || 'Arial',
+          textAlign: 'center', wordBreak: 'break-word', lineHeight: 1.3,
+        };
+        const editArea = isEditing ? (
+          <textarea autoFocus defaultValue={el.content}
+            onBlur={e => { updateEl(el.id, { content: e.target.value }); setEditingTextId(null); }}
+            style={{ width: '100%', height: '100%', border: 'none', background: 'transparent',
+                     fontSize: Math.max(8, (el.fontSize || 24) * scX),
+                     resize: 'none', outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+        ) : <span style={spanStyle}>{el.content}</span>;
+
+        if (bubbleType === 'speech') {
+          inner = (
+            <svg viewBox="0 0 200 120" preserveAspectRatio="none"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+              <path d="M 15,0 H 185 Q 200,0 200,15 V 78 Q 200,93 185,93 H 58 L 28,120 L 46,93 H 15 Q 0,93 0,78 V 15 Q 0,0 15,0 Z"
+                fill={bgColor} stroke={bdColor} strokeWidth="4" strokeLinejoin="round" />
+              <foreignObject x="6" y="4" width="188" height="82">
+                <div style={{ width: '100%', height: '100%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', padding: '4px 6px' }}>
+                  {editArea}
+                </div>
+              </foreignObject>
+            </svg>
+          );
+        } else if (bubbleType === 'thought') {
+          inner = (
+            <svg viewBox="0 0 200 130" preserveAspectRatio="none"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+              {/* Cloud shape: smooth bumpy-top path, flat bottom, entirely within viewBox */}
+              <path
+                d="M 35,88 C 15,88 5,76 8,63 C 4,48 18,36 35,40 C 30,22 48,12 65,18 C 70,6 90,4 100,8 C 110,4 130,6 135,18 C 152,12 170,22 165,40 C 182,36 196,48 192,63 C 195,76 185,88 165,88 Z"
+                fill={bgColor} stroke={bdColor} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round"
               />
-            ) : (
-              <span style={{ fontSize: Math.max(8, (el.fontSize || 24) * scX), color: el.color || '#1a1a1a',
-                             fontWeight: el.fontWeight || 'normal', textAlign: 'center', wordBreak: 'break-word' }}>
-                {el.content}
-              </span>
-            )}
-            {/* Cola del globo */}
-            {bubbleType === 'speech' && (
-              <div style={{ position: 'absolute', bottom: -14, left: 24, width: 0, height: 0,
-                borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
-                borderTop: `14px solid ${bdColor}` }} />
-            )}
-            {bubbleType === 'thought' && (
-              <>
-                <div style={{ position: 'absolute', bottom: -10, left: 20, width: 10, height: 10, borderRadius: '50%', background: bdColor }} />
-                <div style={{ position: 'absolute', bottom: -18, left: 14, width: 7, height: 7, borderRadius: '50%', background: bdColor }} />
-                <div style={{ position: 'absolute', bottom: -24, left: 10, width: 5, height: 5, borderRadius: '50%', background: bdColor }} />
-              </>
-            )}
-            {bubbleType === 'caption' && (
-              <div style={{ position: 'absolute', inset: 0, borderLeft: `6px solid ${bdColor}`, borderRadius: 0, pointerEvents: 'none' }} />
-            )}
-          </div>
-        );
+              {/* Trailing thought dots */}
+              <circle cx="40" cy="97"  r="9"   fill={bdColor} /><circle cx="40" cy="97"  r="6"   fill={bgColor} />
+              <circle cx="27" cy="109" r="7"   fill={bdColor} /><circle cx="27" cy="109" r="4.5" fill={bgColor} />
+              <circle cx="16" cy="119" r="5"   fill={bdColor} /><circle cx="16" cy="119" r="3"   fill={bgColor} />
+              <foreignObject x="20" y="10" width="160" height="72">
+                <div style={{ width: '100%', height: '100%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', padding: '4px 8px' }}>
+                  {editArea}
+                </div>
+              </foreignObject>
+            </svg>
+          );
+        } else {
+          // caption
+          inner = (
+            <div style={{
+              width: '100%', height: '100%', boxSizing: 'border-box',
+              background: bgColor, border: `2px solid ${bdColor}`,
+              borderLeft: `6px solid ${bdColor}`, borderRadius: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 8, position: 'relative',
+            }}>
+              {editArea}
+            </div>
+          );
+        }
       } else {
         inner = isEditing ? (
           <textarea
@@ -407,6 +539,13 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
       inner = <img src={el.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: (el as any).objectFit || 'contain', display: 'block' }} />;
     } else if (el.type === 'gif') {
       inner = <img src={el.gifUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />;
+    } else if (el.type === 'video') {
+      const fit = (el as any).objectFit || 'contain';
+      inner = (
+        <video src={el.videoUrl}
+          style={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }}
+          autoPlay loop muted playsInline />
+      );
     } else if (el.type === 'shape') {
       inner = <div style={{ width: '100%', height: '100%', backgroundColor: el.color || '#6366f1', borderRadius: el.shape === 'circle' ? '50%' : 4 }} />;
     } else if (el.type === 'line') {
@@ -429,12 +568,29 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
 
     return (
       <div
-        key={el.id}
+        key={showingAnim ? `${el.id}-${animKey}` : el.id}
         style={wrapStyle}
-        onMouseDown={e => onElementMouseDown(e, el.id)}
+        onMouseDown={e => {
+          if (isEditing) return; // allow textarea to handle its own mouse/cursor events
+          onElementMouseDown(e, el.id);
+        }}
         onDoubleClick={() => { if (el.type === 'text') setEditingTextId(el.id); }}
-        title={el.type === 'text' ? 'Doble clic para editar el texto' : undefined}
+        title={el.type === 'text' && !isEditing ? 'Doble clic para editar el texto' : undefined}
       >
+        {/* Appearance order badge */}
+        {(el.appearanceOrder ?? 0) > 0 && !isEditing && (
+          <div style={{
+            position: 'absolute', top: -9, left: -9,
+            width: 18, height: 18, borderRadius: '50%',
+            background: isSelected ? '#7c3aed' : '#6b7280',
+            color: 'white', fontSize: 9, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1003, boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            pointerEvents: 'none',
+          }}>
+            {el.appearanceOrder}
+          </div>
+        )}
         {inner}
 
         {/* ── Handles de resize ── */}
@@ -466,12 +622,12 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
           }}>
             {el.type === 'text' && (
               <button onClick={() => setEditingTextId(el.id)} title="Editar texto"
-                className="text-white hover:text-purple-300 text-xs px-1">✏️</button>
+                className="text-white hover:text-purple-300 p-0.5"><Pencil className="w-3.5 h-3.5" /></button>
             )}
-            <button onClick={() => { commit({ ...localPanel, elements: [...localPanel.elements.filter(x => x.id !== el.id), el] }); }} title="Al frente" className="text-white hover:text-purple-300 text-xs px-1">⬆︎</button>
-            <button onClick={() => { const els = [...localPanel.elements]; const i = els.findIndex(x => x.id === el.id); if (i > 0) { [els[i], els[i-1]] = [els[i-1], els[i]]; commit({ ...localPanel, elements: els }); } }} title="Atrás" className="text-white hover:text-purple-300 text-xs px-1">⬇︎</button>
+            <button onClick={() => { commit({ ...localPanel, elements: [...localPanel.elements.filter(x => x.id !== el.id), el] }); }} title="Al frente" className="text-white hover:text-purple-300 p-0.5"><ArrowUp className="w-3.5 h-3.5" /></button>
+            <button onClick={() => { const els = [...localPanel.elements]; const i = els.findIndex(x => x.id === el.id); if (i > 0) { [els[i], els[i-1]] = [els[i-1], els[i]]; commit({ ...localPanel, elements: els }); } }} title="Atrás" className="text-white hover:text-purple-300 p-0.5"><ArrowDown className="w-3.5 h-3.5" /></button>
             <div style={{ width: 1, background: '#4c1d95', margin: '0 2px' }} />
-            <button onClick={() => deleteEl(el.id)} title="Eliminar" className="text-red-400 hover:text-red-300 text-xs px-1">🗑</button>
+            <button onClick={() => deleteEl(el.id)} title="Eliminar" className="text-red-400 hover:text-red-300 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </div>
@@ -496,10 +652,18 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
   const [propSection, setPropSection] = useState<Record<string, boolean>>({ position: true, style: true, text: true, anim: false });
   const toggle = (k: string) => setPropSection(p => ({ ...p, [k]: !p[k] }));
 
-  const Section: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
+  const Section: React.FC<{
+    id: string;
+    title: string;
+    icon?: React.ComponentType<{ className?: string }>;
+    children: React.ReactNode;
+  }> = ({ id, title, icon: Icon, children }) => (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <button onClick={() => toggle(id)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-semibold text-gray-700">
-        {title}
+        <span className="flex items-center gap-2">
+          {Icon && <Icon className="w-4 h-4 text-purple-500" />}
+          {title}
+        </span>
         {propSection[id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
       {propSection[id] && <div className="p-3 space-y-3">{children}</div>}
@@ -560,7 +724,7 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
         {/* ── Top bar ── */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white z-10 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-gray-800">✏️ Editor de Panel</span>
+            <span className="flex items-center gap-2 text-lg font-bold text-gray-800"><Pencil className="w-5 h-5 text-purple-600" />Editor de Panel</span>
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
               <button onClick={undo} disabled={histIdx === 0} className="p-1.5 rounded hover:bg-white disabled:opacity-30 transition-all" title="Deshacer (Ctrl+Z)"><Undo className="w-4 h-4" /></button>
               <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-1.5 rounded hover:bg-white disabled:opacity-30 transition-all" title="Rehacer (Ctrl+Y)"><Redo className="w-4 h-4" /></button>
@@ -599,7 +763,7 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
               <button key={btn.type} onClick={() => addElement(btn.type)}
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium text-left transition-all ${COLOR_BTN[btn.color]}`}
                 title={btn.desc}>
-                {btn.icon ? <btn.icon className="w-4 h-4 flex-shrink-0" /> : <span className="text-base leading-none">{btn.emoji}</span>}
+                <btn.icon className="w-4 h-4 flex-shrink-0" />
                 <span>{btn.label}</span>
               </button>
             ))}
@@ -621,8 +785,8 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
               </label>
               {localPanel.backgroundImage && (
                 <button onClick={() => commit({ ...localPanel, backgroundImage: undefined })}
-                  className="mt-1 w-full px-2 py-1.5 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs hover:bg-red-100">
-                  🗑 Quitar fondo
+                  className="mt-1 w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs hover:bg-red-100">
+                  <Trash2 className="w-3 h-3" /> Quitar fondo
                 </button>
               )}
             </div>
@@ -630,15 +794,24 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
 
           {/* ── Center: canvas ── */}
           <div className="flex-1 bg-gray-800 overflow-auto relative flex items-start justify-center p-6"
-               onClick={e => { if (e.target === e.currentTarget) setSelectedId(null); }}>
+               onClick={e => { if (e.target === e.currentTarget) setSelectedId(null); }}
+               onWheel={e => {
+                 e.preventDefault();
+                 setZoom(z => Math.min(150, Math.max(30, z + (e.deltaY < 0 ? 8 : -8))));
+               }}>
 
             {/* Hint para usuarios nuevos */}
             {localPanel.elements.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 10 }}>
-                <div className="bg-black/50 text-white rounded-2xl px-8 py-6 text-center max-w-xs">
-                  <p className="text-4xl mb-3">👈</p>
-                  <p className="font-semibold text-lg mb-1">¡Comienza aquí!</p>
-                  <p className="text-sm opacity-80">Usa los botones de la izquierda para agregar texto, imágenes y más a tu panel.</p>
+                <div className="bg-black/60 text-white rounded-2xl px-8 py-6 text-center max-w-sm">
+                  <AlignLeft className="w-10 h-10 mb-3 opacity-60 mx-auto" />
+                  <p className="font-bold text-lg mb-2">Panel vacío</p>
+                  <p className="text-sm opacity-80 mb-3">Agrega elementos desde el panel izquierdo:</p>
+                  <div className="text-left text-sm space-y-1 opacity-70">
+                    <p>• <b>Texto / Globo / Pensamiento</b> → para diálogos</p>
+                    <p>• <b>Imagen / GIF / Video</b> → contenido multimedia</p>
+                    <p>• <b>Formas / Emoji / Flecha</b> → decoraciones</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -685,16 +858,32 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
                 <Layers className="w-4 h-4 text-purple-600" />
-                {selected ? `Elemento: ${selected.type}` : 'Propiedades'}
+                {selected
+                  ? ((selected as any).bubbleType === 'speech' ? 'Globo de diálogo' :
+                     (selected as any).bubbleType === 'thought' ? 'Burbuja de pensamiento' :
+                     (selected as any).bubbleType === 'caption' ? 'Caja de narración' :
+                     selected.type === 'text' ? 'Texto' :
+                     selected.type === 'image' ? 'Imagen' :
+                     selected.type === 'gif' ? 'GIF' :
+                     selected.type === 'video' ? 'Video' :
+                     selected.type === 'shape' ? 'Forma' :
+                     selected.type === 'sticker' ? 'Emoji' :
+                     selected.type === 'line' ? 'Línea' :
+                     selected.type === 'arrow' ? 'Flecha' : 'Elemento')
+                  : 'Panel y Orden'}
               </p>
-              {!selected && <p className="text-xs text-gray-400 mt-0.5">Selecciona un elemento en el canvas</p>}
+              {!selected && <p className="text-xs text-gray-400 mt-0.5">Haz clic en cualquier elemento del canvas para editarlo</p>}
             </div>
 
-            <div className="flex-1 p-3 space-y-3 overflow-y-auto">
+            <div
+              ref={rightPanelRef}
+              className="flex-1 p-3 space-y-3 overflow-y-auto"
+              onScroll={e => { rightScrollRef.current = (e.currentTarget as HTMLDivElement).scrollTop; }}
+            >
               {!selected ? (
                 /* ── Sin selección: config del panel ── */
                 <div className="space-y-3">
-                  <Section id="panelConfig" title="⚙️ Configuración del Panel">
+                  <Section id="panelConfig" title="Configuración del Panel" icon={Settings}>
                     <div className="grid grid-cols-2 gap-2">
                       <div><label className="block text-xs text-gray-500 mb-1">Ancho (px)</label>
                         <input type="number" min={400} max={4000} value={panelW} onChange={e => commit({ ...localPanel, panelWidth: +e.target.value })}
@@ -711,14 +900,160 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                     </div>
                   </Section>
 
-                  {/* Lista de elementos */}
+                  {/* Transiciones del panel */}
+                  <Section id="panelTransitions" title="Transiciones del Panel" icon={Clapperboard}>
+                    <p className="text-xs text-gray-400 -mt-1 mb-2">Configuran cómo entra y sale este panel</p>
+                    <div className="space-y-3">
+                      <TransitionSettings
+                        title="Transición de Entrada"
+                        transition={localPanel.entranceTransition}
+                        onUpdate={t => commit({ ...localPanel, entranceTransition: t })}
+                      />
+                      <TransitionSettings
+                        title="Transición al Siguiente"
+                        transition={localPanel.transitionToNext}
+                        onUpdate={t => commit({ ...localPanel, transitionToNext: t })}
+                      />
+                      <TransitionSettings
+                        title="Transición de Salida"
+                        transition={localPanel.exitTransition}
+                        onUpdate={t => commit({ ...localPanel, exitTransition: t })}
+                      />
+                    </div>
+                  </Section>
+
+                  {/* ── Orden de Aparición ── */}
+                  <Section id="orderEditor" title="¿Cuándo aparece cada elemento?" icon={Timer}>
+                    <p className="text-xs text-gray-500 -mt-1 mb-3">
+                      Elige si todos aparecen juntos o de uno en uno al mostrar el panel.
+                    </p>
+
+                    {/* Quick-action buttons */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <button
+                        onClick={() => {
+                          const updated = localPanel.elements.map(e => ({
+                            ...e, appearanceOrder: 1, entranceAnimation: undefined,
+                          }));
+                          commit({ ...localPanel, elements: updated });
+                        }}
+                        className="flex flex-col items-center gap-1 px-2 py-2.5 text-xs border-2 border-blue-200 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all"
+                        title="Todos los elementos aparecen al mismo tiempo, sin animación"
+                      >
+                        <span className="text-base font-bold tracking-widest">■■■</span>
+                        <span className="font-semibold">Todo a la vez</span>
+                        <span className="text-blue-500 font-normal">(sin retraso)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const sorted = [...localPanel.elements].sort((a, b) => (a.appearanceOrder || 0) - (b.appearanceOrder || 0));
+                          const updated = localPanel.elements.map(e => {
+                            const idx = sorted.findIndex(s => s.id === e.id);
+                            return {
+                              ...e,
+                              appearanceOrder: idx + 1,
+                              entranceAnimation: { type: 'fadeIn' as const, duration: 400, delay: idx * 600 },
+                            };
+                          });
+                          commit({ ...localPanel, elements: updated });
+                        }}
+                        className="flex flex-col items-center gap-1 px-2 py-2.5 text-xs border-2 border-purple-200 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition-all"
+                        title="Cada elemento aparece 0.6 segundos después del anterior"
+                      >
+                        <span className="text-base font-bold">1 → 2 → 3</span>
+                        <span className="font-semibold">Uno por uno</span>
+                        <span className="text-purple-500 font-normal">(escalonado)</span>
+                      </button>
+                    </div>
+
+                    {sortedEls.length > 0 && (
+                      <p className="text-xs text-gray-400 mb-1.5">
+                        Arrastra para reordenar · Clic para seleccionar
+                      </p>
+                    )}
+
+                    <div className="space-y-1">
+                      {sortedEls.map((el, idx) => {
+                        const delay = el.entranceAnimation?.delay ?? 0;
+                        const hasAnim = !!el.entranceAnimation;
+                        const delayLabel = !hasAnim ? 'Sin animación' :
+                                           delay === 0 ? 'Al instante' :
+                                           delay < 1000 ? `+${delay / 1000}s` :
+                                           `+${(delay / 1000).toFixed(1)}s`;
+                        const elLabel =
+                          (el as any).bubbleType === 'speech' ? 'Globo de diálogo' :
+                          (el as any).bubbleType === 'thought' ? 'Pensamiento' :
+                          (el as any).bubbleType === 'caption' ? 'Narración' :
+                          el.type === 'text' ? (el.content?.slice(0, 16) || 'Texto') :
+                          el.type === 'image' ? 'Imagen' :
+                          el.type === 'gif' ? 'GIF' :
+                          el.type === 'video' ? 'Video' :
+                          el.type === 'shape' ? 'Forma' :
+                          el.type === 'sticker' ? 'Emoji' :
+                          el.type === 'line' ? 'Línea' :
+                          el.type === 'arrow' ? 'Flecha' : el.type;
+
+                        return (
+                          <div
+                            key={el.id}
+                            draggable
+                            onDragStart={() => setDragOrderIdx(idx)}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragOrderIdx === null || dragOrderIdx === idx) { setDragOrderIdx(null); return; }
+                              const ordered = [...sortedEls];
+                              const [moved] = ordered.splice(dragOrderIdx, 1);
+                              ordered.splice(idx, 0, moved);
+                              const updated = localPanel.elements.map(e => ({
+                                ...e,
+                                appearanceOrder: ordered.findIndex(o => o.id === e.id) + 1,
+                              }));
+                              commit({ ...localPanel, elements: updated });
+                              setDragOrderIdx(null);
+                            }}
+                            onClick={() => setSelectedId(el.id)}
+                            className={`flex items-center gap-2 px-2 py-2 rounded-lg cursor-grab text-xs select-none transition-all border ${
+                              selectedId === el.id
+                                ? 'bg-purple-50 border-purple-200 text-purple-800'
+                                : 'hover:bg-gray-50 border-transparent text-gray-700'
+                            } ${dragOrderIdx === idx ? 'opacity-40 scale-95' : ''}`}
+                          >
+                            <GripVertical className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center flex-shrink-0 font-bold">
+                              {idx + 1}
+                            </span>
+                            <span className="flex-1 truncate font-medium">{elLabel}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap ${
+                              hasAnim && delay > 0 ? 'bg-purple-100 text-purple-700' :
+                              hasAnim ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {delayLabel}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {sortedEls.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-2">Sin elementos aún</p>
+                    )}
+                  </Section>
+
+                  {/* Capas */}
                   <div>
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Capas ({localPanel.elements.length})</p>
                     <div className="space-y-1">
-                      {[...sortedEls].reverse().map((el, i) => (
+                      {[...sortedEls].reverse().map((el) => (
                         <div key={el.id} onClick={() => setSelectedId(el.id)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm ${selectedId === el.id ? 'bg-purple-100 text-purple-800' : 'hover:bg-gray-100 text-gray-700'}`}>
-                          <span className="text-base">{el.type==='text'?'📝':el.type==='image'||el.type==='gif'?'🖼️':el.type==='shape'?'⬛':el.type==='sticker'?el.stickerType||'⭐':el.type==='arrow'?'➡️':'➖'}</span>
+                          <span className="w-4 h-4 flex items-center justify-center text-gray-500">
+                            {el.type==='text' ? <Type className="w-3.5 h-3.5" /> :
+                             el.type==='image'||el.type==='gif' ? <ImageIcon className="w-3.5 h-3.5" /> :
+                             el.type==='video' ? <Film className="w-3.5 h-3.5" /> :
+                             el.type==='shape' ? <Square className="w-3.5 h-3.5" /> :
+                             el.type==='sticker' ? <Smile className="w-3.5 h-3.5" /> :
+                             el.type==='arrow' ? <ArrowRight className="w-3.5 h-3.5" /> :
+                             <Minus className="w-3.5 h-3.5" />}
+                          </span>
                           <span className="flex-1 truncate text-xs">{el.type === 'text' ? (el.content?.slice(0,20) || 'Texto') : el.type}</span>
                           <button onClick={e => { e.stopPropagation(); updateEl(el.id, { visible: el.visible !== false ? false : true }); }}
                             className="opacity-60 hover:opacity-100">{el.visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-red-400" />}</button>
@@ -742,7 +1077,7 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                   </div>
 
                   {/* Posición y tamaño */}
-                  <Section id="position" title="📐 Posición y Tamaño">
+                  <Section id="position" title="Posición y Tamaño" icon={Move}>
                     <div className="grid grid-cols-2 gap-2">
                       {[['X', 'x', 0, panelW], ['Y', 'y', 0, panelH], ['Ancho', 'width', 10, panelW], ['Alto', 'height', 10, panelH]].map(([label, key, min, max]) => (
                         <div key={key as string}>
@@ -759,15 +1094,21 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                       <button onClick={() => setLockAR(v => !v)} className={`p-1 rounded ${lockAR ? 'text-purple-600' : 'text-gray-400'}`}>{lockAR ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}</button>
                     </div>
                     <div className="pt-1 border-t border-gray-100 text-xs text-gray-400">
-                      💡 Arrastra las esquinas del elemento para redimensionar
+                      Arrastra las esquinas moradas para redimensionar
                     </div>
                   </Section>
 
                   {/* Estilo (texto) */}
                   {selected.type === 'text' && (
-                    <Section id="textStyle" title="🔤 Estilo de Texto">
+                    <Section id="textStyle" title="Texto y Estilo" icon={Type}>
+                      {!(selected as any).bubbleType && (
+                        <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 mb-1">
+                          <Pencil className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span><b>Doble clic</b> en el texto del canvas para editarlo. Una vez abierto, haz clic donde quieras para posicionar el cursor.</span>
+                        </div>
+                      )}
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Contenido</label>
+                        <label className="block text-xs text-gray-500 mb-1">Contenido del texto</label>
                         <textarea value={selected.content || ''} onChange={e => updateEl(selected.id, { content: e.target.value })}
                           rows={3} className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm resize-none focus:border-purple-400 focus:outline-none" />
                       </div>
@@ -800,7 +1141,7 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
 
                   {/* Color para shapes */}
                   {(selected.type === 'shape' || selected.type === 'line' || selected.type === 'arrow') && (
-                    <Section id="shapeStyle" title="🎨 Color">
+                    <Section id="shapeStyle" title="Color y Trazo" icon={Palette}>
                       <div><label className="block text-xs text-gray-500 mb-1">Color</label><input type="color" value={selected.color || '#6366f1'} onChange={e => updateEl(selected.id, { color: e.target.value })} className="w-full h-10 border border-gray-200 rounded-lg cursor-pointer" /></div>
                       {(selected.type === 'line' || selected.type === 'arrow') && <Slider label="Grosor" value={selected.strokeWidth || 4} min={1} max={20} unit="px" onChange={v => updateEl(selected.id, { strokeWidth: v })} />}
                     </Section>
@@ -808,7 +1149,7 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
 
                   {/* Sticker */}
                   {selected.type === 'sticker' && (
-                    <Section id="stickerStyle" title="😊 Emoji">
+                    <Section id="stickerStyle" title="Emoji" icon={Smile}>
                       <div><label className="block text-xs text-gray-500 mb-1">Emoji</label>
                         <input type="text" value={selected.stickerType || '⭐'} onChange={e => updateEl(selected.id, { stickerType: e.target.value })}
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-3xl text-center" maxLength={2} /></div>
@@ -816,9 +1157,9 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                     </Section>
                   )}
 
-                  {/* Imagen */}
+                  {/* Imagen / GIF */}
                   {(selected.type === 'image' || selected.type === 'gif') && (
-                    <Section id="imgStyle" title="🖼️ Imagen">
+                    <Section id="imgStyle" title="Imagen" icon={ImageIcon}>
                       <Slider label="Opacidad" value={(selected.opacity || 1) * 100} min={10} max={100} unit="%" onChange={v => updateEl(selected.id, { opacity: v / 100 })} />
                       <div><label className="block text-xs text-gray-500 mb-1">Ajuste</label>
                         <select value={(selected as any).objectFit || 'contain'} onChange={e => updateEl(selected.id, { objectFit: e.target.value } as any)}
@@ -831,35 +1172,100 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                     </Section>
                   )}
 
+                  {/* Video */}
+                  {selected.type === 'video' && (
+                    <Section id="videoStyle" title="Video" icon={Film}>
+                      <div className="flex items-center justify-between text-sm text-gray-600 py-1">
+                        <span>Reproducción automática</span>
+                        <button onClick={() => updateEl(selected.id, { autoplay: !(selected.autoplay ?? true) })}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${(selected.autoplay ?? true) ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                          {(selected.autoplay ?? true) ? 'Activado' : 'Desactivado'}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-600 py-1">
+                        <span>Repetir (Loop)</span>
+                        <button onClick={() => updateEl(selected.id, { loop: !(selected.loop ?? true) })}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${(selected.loop ?? true) ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                          {(selected.loop ?? true) ? 'Activado' : 'Desactivado'}
+                        </button>
+                      </div>
+                      <Slider label="Opacidad" value={(selected.opacity || 1) * 100} min={10} max={100} unit="%" onChange={v => updateEl(selected.id, { opacity: v / 100 })} />
+                      <div><label className="block text-xs text-gray-500 mb-1">Ajuste</label>
+                        <select value={(selected as any).objectFit || 'cover'} onChange={e => updateEl(selected.id, { objectFit: e.target.value } as any)}
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+                          <option value="cover">Rellenar (Cover)</option>
+                          <option value="contain">Ajustar (Contain)</option>
+                          <option value="fill">Estirar (Fill)</option>
+                        </select>
+                      </div>
+                    </Section>
+                  )}
+
                   {/* Animaciones */}
-                  <Section id="anim" title="🎬 Animación de Entrada">
-                    <p className="text-xs text-gray-400 -mt-1">Se reproduce al mostrar el panel</p>
+                  <Section id="anim" title="¿Cómo aparece este elemento?" icon={Play}>
+                    <p className="text-xs text-gray-400 -mt-1 mb-2">Efecto visual cuando el elemento entra en pantalla</p>
                     <select value={selected.entranceAnimation?.type || ''}
-                      onChange={e => { const t = e.target.value as any; updateEl(selected.id, { entranceAnimation: t ? { type: t, duration: 800, delay: 0 } : undefined }); }}
+                      onChange={e => { const t = e.target.value as any; updateEl(selected.id, { entranceAnimation: t ? { type: t, duration: 500, delay: 0 } : undefined }); }}
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
-                      <option value="">Sin animación</option>
-                      <option value="fadeIn">✨ Aparecer (Fade)</option>
-                      <option value="slideIn">➡️ Deslizar</option>
-                      <option value="zoomIn">🔍 Zoom In</option>
-                      <option value="bounceIn">🏀 Rebotar</option>
-                      {selected.type === 'text' && <option value="typewriter">⌨️ Máquina de escribir</option>}
+                      <option value="">Sin efecto (aparece directamente)</option>
+                      <option value="fadeIn">Aparecer gradualmente (Fade)</option>
+                      <option value="slideIn">Entrar deslizando (Slide)</option>
+                      <option value="zoomIn">Crecer desde el centro (Zoom)</option>
+                      <option value="bounceIn">Entrar rebotando (Bounce)</option>
+                      {selected.type === 'text' && <option value="typewriter">Escribirse letra a letra</option>}
                     </select>
                     {selected.entranceAnimation && (
                       <>
-                        <Slider label="Duración" value={selected.entranceAnimation.duration} min={200} max={3000} step={100} unit="ms" onChange={v => updateEl(selected.id, { entranceAnimation: { ...selected.entranceAnimation!, duration: v } })} />
-                        <Slider label="Retraso" value={selected.entranceAnimation.delay || 0} min={0} max={3000} step={100} unit="ms" onChange={v => updateEl(selected.id, { entranceAnimation: { ...selected.entranceAnimation!, delay: v } })} />
                         {selected.entranceAnimation.type === 'slideIn' && (
-                          <div><label className="block text-xs text-gray-500 mb-1">Dirección</label>
+                          <div><label className="block text-xs text-gray-500 mb-1">¿Desde dónde entra?</label>
                             <select value={selected.entranceAnimation.direction || 'left'} onChange={e => updateEl(selected.id, { entranceAnimation: { ...selected.entranceAnimation!, direction: e.target.value as any } })}
                               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
-                              <option value="left">Desde la izquierda</option><option value="right">Desde la derecha</option>
-                              <option value="up">Desde arriba</option><option value="down">Desde abajo</option>
+                              <option value="left">Desde la izquierda</option>
+                              <option value="right">Desde la derecha</option>
+                              <option value="up">Desde arriba</option>
+                              <option value="down">Desde abajo</option>
                             </select>
                           </div>
                         )}
+
+                        {/* Duración */}
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1.5">Velocidad del efecto</label>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {([[200,'Rápido'],[500,'Normal'],[1000,'Lento'],[2000,'Muy lento']] as [number,string][]).map(([v, lbl]) => (
+                              <button key={v}
+                                onClick={() => updateEl(selected.id, { entranceAnimation: { ...selected.entranceAnimation!, duration: v } })}
+                                className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${
+                                  selected.entranceAnimation!.duration === v
+                                    ? 'bg-purple-600 text-white border-purple-600'
+                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-purple-50'
+                                }`}
+                              >{lbl}</button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Retraso */}
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1.5">¿Cuándo aparece?</label>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {([[0,'Al instante'],[500,'0.5s'],[1000,'1s'],[2000,'2s'],[3000,'3s']] as [number,string][]).map(([v, lbl]) => (
+                              <button key={v}
+                                onClick={() => updateEl(selected.id, { entranceAnimation: { ...selected.entranceAnimation!, delay: v } })}
+                                className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${
+                                  (selected.entranceAnimation!.delay || 0) === v
+                                    ? 'bg-purple-600 text-white border-purple-600'
+                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-purple-50'
+                                }`}
+                              >{lbl}</button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">Tiempo de espera desde que aparece el panel</p>
+                        </div>
+
                         <button onClick={() => { setPreviewAnim(true); setAnimKey(k => k + 1); setTimeout(() => setPreviewAnim(false), 3000); }}
                           className="w-full py-2 bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium hover:bg-purple-200">
-                          ▶ Previsualizar animación
+                          ▶ Ver cómo se ve la animación
                         </button>
                       </>
                     )}
@@ -869,8 +1275,8 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
                     <span className="text-gray-600">Visible en el panel</span>
                     <button onClick={() => updateEl(selected.id, { visible: selected.visible !== false ? false : true })}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${selected.visible !== false ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
-                      {selected.visible !== false ? '👁 Visible' : '🙈 Oculto'}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${selected.visible !== false ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                      {selected.visible !== false ? <><Eye className="w-3.5 h-3.5" />Visible</> : <><EyeOff className="w-3.5 h-3.5" />Oculto</>}
                     </button>
                   </div>
                 </div>
@@ -878,11 +1284,12 @@ const AdvancedPanelEditor: React.FC<Props> = ({ panel, onPanelUpdate, onClose })
             </div>
 
             {/* Hint inferior */}
-            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400 space-y-0.5 flex-shrink-0">
-              <p>• <b>Clic</b> para seleccionar · <b>Arrastrar</b> para mover</p>
-              <p>• <b>Esquinas moradas</b> para redimensionar</p>
-              <p>• <b>Doble clic</b> en texto para editar</p>
-              <p>• <b>Ctrl+Z</b> para deshacer</p>
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400 space-y-1 flex-shrink-0">
+              <p className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Guía rápida</p>
+              <p>• <b>Clic</b> en un elemento para seleccionarlo</p>
+              <p>• <b>Arrastrar</b> para mover · <b>Esquinas moradas</b> para redimensionar</p>
+              <p>• <b>Doble clic</b> en texto para editar · luego clic para posicionar cursor</p>
+              <p>• <b>Ctrl+Z</b> deshacer · <b>Ctrl+Y</b> rehacer</p>
             </div>
           </div>
         </div>

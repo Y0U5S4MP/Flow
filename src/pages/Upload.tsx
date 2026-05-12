@@ -38,31 +38,85 @@ const Upload: React.FC = () => {
     );
   }
 
-  // ── Upload de imágenes ─────────────────────────────────────────────────────
+  // ── Upload de imágenes, GIFs y videos ─────────────────────────────────────
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
+      const isVideo = file.type.startsWith('video/');
+      const isGif = file.name.toLowerCase().endsWith('.gif') || file.type === 'image/gif';
+
       reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const newPanel: Panel = {
-            id: uuidv4(),
-            imageUrl: e.target?.result as string,
-            backgroundImage: e.target?.result as string,
-            panelWidth: img.width,
-            panelHeight: img.height,
-            elements: [],
-            backgroundColor: '#ffffff',
+        const dataUrl = e.target?.result as string;
+
+        if (isVideo) {
+          // Detectar dimensiones reales antes de crear el panel
+          const vid = document.createElement('video');
+          vid.preload = 'metadata';
+          const createVideoPanel = (vw: number, vh: number) => {
+            const newPanel: Panel = {
+              id: uuidv4(),
+              panelWidth: vw,
+              panelHeight: vh,
+              elements: [{
+                id: uuidv4(),
+                type: 'video',
+                x: 0,
+                y: 0,
+                width: vw,
+                height: vh,
+                videoUrl: dataUrl,
+                autoplay: true,
+                loop: true,
+              }],
+              backgroundColor: '#000000',
+            };
+            setPanels(prev => [...prev, newPanel]);
           };
-          setPanels(prev => [...prev, newPanel]);
-        };
-        img.src = e.target?.result as string;
+          vid.onloadedmetadata = () => {
+            createVideoPanel(vid.videoWidth || 1280, vid.videoHeight || 720);
+            URL.revokeObjectURL(vid.src);
+          };
+          vid.onerror = () => createVideoPanel(1280, 720);
+          // Usar object URL para evitar re-cargar el data URL completo
+          vid.src = URL.createObjectURL(file);
+        } else if (isGif) {
+          // Para GIFs: panel con gif como fondo animado
+          const img = new Image();
+          img.onload = () => {
+            const newPanel: Panel = {
+              id: uuidv4(),
+              imageUrl: dataUrl,
+              backgroundImage: dataUrl,
+              panelWidth: img.naturalWidth || 800,
+              panelHeight: img.naturalHeight || 600,
+              elements: [],
+              backgroundColor: '#ffffff',
+            };
+            setPanels(prev => [...prev, newPanel]);
+          };
+          img.src = dataUrl;
+        } else {
+          // Para imágenes normales
+          const img = new Image();
+          img.onload = () => {
+            const newPanel: Panel = {
+              id: uuidv4(),
+              imageUrl: dataUrl,
+              backgroundImage: dataUrl,
+              panelWidth: img.naturalWidth || img.width,
+              panelHeight: img.naturalHeight || img.height,
+              elements: [],
+              backgroundColor: '#ffffff',
+            };
+            setPanels(prev => [...prev, newPanel]);
+          };
+          img.src = dataUrl;
+        }
       };
       reader.readAsDataURL(file);
     });
-    // Resetea el input para que el mismo archivo pueda subirse de nuevo
     event.target.value = '';
   };
 
@@ -239,14 +293,14 @@ const Upload: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-4">Paneles</label>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Upload imágenes */}
+                {/* Upload imágenes, GIFs y videos */}
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50">
-                  <input type="file" accept="image/*" multiple onChange={handleImageUpload}
+                  <input type="file" accept="image/*,video/mp4,video/webm,video/ogg" multiple onChange={handleImageUpload}
                     className="hidden" id="image-upload" />
                   <label htmlFor="image-upload" className="cursor-pointer">
                     <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-base font-medium text-gray-700 mb-1">Subir imágenes</p>
-                    <p className="text-xs text-gray-500">Selecciona múltiples imágenes</p>
+                    <p className="text-base font-medium text-gray-700 mb-1">Subir imágenes, GIFs o videos</p>
+                    <p className="text-xs text-gray-500">JPG, PNG, GIF, MP4, WebM…</p>
                   </label>
                 </div>
 
@@ -280,20 +334,42 @@ const Upload: React.FC = () => {
                         </div>
 
                         {/* Miniatura */}
-                        <div className="flex-1 aspect-video bg-gray-100 rounded-lg overflow-hidden max-w-xs"
+                        <div className="flex-1 aspect-video bg-gray-100 rounded-lg overflow-hidden max-w-xs relative"
                           style={{ maxHeight: 80 }}>
-                          {panel.imageUrl || panel.backgroundImage ? (
-                            <img src={panel.imageUrl || panel.backgroundImage} alt={`Panel ${index + 1}`}
-                              className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"
-                              style={{ backgroundColor: panel.backgroundColor || '#fff' }}>
-                              <div className="text-center">
-                                <FilePlus className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                                <p className="text-xs text-gray-500">Panel en Blanco</p>
-                              </div>
-                            </div>
-                          )}
+                          {(() => {
+                            const videoEl = panel.elements?.find(e => e.type === 'video');
+                            const gifEl = panel.elements?.find(e => e.type === 'gif');
+                            if (panel.imageUrl || panel.backgroundImage) {
+                              return (
+                                <img src={panel.imageUrl || panel.backgroundImage} alt={`Panel ${index + 1}`}
+                                  className="w-full h-full object-cover" />
+                              );
+                            } else if (videoEl?.videoUrl) {
+                              return (
+                                <>
+                                  <video src={videoEl.videoUrl} className="w-full h-full object-cover" muted />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <span className="text-white text-xl">🎥</span>
+                                  </div>
+                                </>
+                              );
+                            } else if (gifEl?.gifUrl) {
+                              return (
+                                <img src={gifEl.gifUrl} alt={`Panel ${index + 1}`}
+                                  className="w-full h-full object-cover" />
+                              );
+                            } else {
+                              return (
+                                <div className="w-full h-full flex items-center justify-center"
+                                  style={{ backgroundColor: panel.backgroundColor || '#fff' }}>
+                                  <div className="text-center">
+                                    <FilePlus className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500">Panel en Blanco</p>
+                                  </div>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
 
                         {/* Flechas */}
@@ -341,12 +417,22 @@ const Upload: React.FC = () => {
                       </div>
 
                       {/* Transición expandida */}
-                      {expandedTransitions.has(panel.id) && index < panels.length - 1 && (
+                      {expandedTransitions.has(panel.id) && (
                         <div className="mt-4 pt-4 border-t border-gray-200">
-                          <TransitionSettings
-                            title={`Transición hacia el Panel ${index + 2}`}
-                            transition={panel.transitionToNext}
-                            onUpdate={t => updatePanelTransition(panel.id, 'transitionToNext', t)} />
+                          {index < panels.length - 1 ? (
+                            <TransitionSettings
+                              title={`Transición hacia el Panel ${index + 2}`}
+                              transition={panel.transitionToNext}
+                              onUpdate={t => updatePanelTransition(panel.id, 'transitionToNext', t)} />
+                          ) : (
+                            <div className="text-center py-4 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                              <p className="text-sm font-medium text-gray-500">Último panel</p>
+                              <p className="text-xs mt-1">Agrega más paneles para configurar la transición entre ellos.</p>
+                              <p className="text-xs mt-2 text-purple-500">
+                                💡 Las transiciones de entrada/salida globales se configuran arriba.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

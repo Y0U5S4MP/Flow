@@ -116,10 +116,13 @@ const TransitionSettings: React.FC<TransitionSettingsProps> = ({ title, transiti
             </select>
           </div>
 
-          {/* Preview inline compacto */}
+          {/* Preview inline compacto — key fuerza remount al cambiar tipo/dirección */}
           <div className="pt-2 border-t border-gray-200">
             <p className="text-xs text-gray-500 mb-2 font-medium">Vista previa:</p>
-            <TransitionPreview transition={previewTransition} />
+            <TransitionPreview
+              key={`${current.type}-${current.direction ?? 'none'}-${current.duration}`}
+              transition={previewTransition}
+            />
           </div>
         </>
       )}
@@ -134,6 +137,7 @@ const TransitionSettings: React.FC<TransitionSettingsProps> = ({ title, transiti
       {/* Modal de preview (botón arriba) */}
       {showPreview && (
         <TransitionPreview
+          key={`modal-${current.type}-${current.direction ?? 'none'}`}
           transition={previewTransition}
           asModal
           onClose={() => setShowPreview(false)}
